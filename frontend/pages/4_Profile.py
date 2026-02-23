@@ -39,14 +39,14 @@ with center:
     avatar_style = (
         f"width:80px;height:80px;background:linear-gradient(135deg,{p['accent']},{p['accent_hover']},#a78bfa);"
         f"border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
-        f"font-size:2rem;font-weight:700;color:#fff;margin-bottom:1rem;box-shadow:0 4px 12px rgba(99,102,241,0.3);"
+        f"font-size:2rem;font-weight:700;color:#fff !important;margin-bottom:1rem;box-shadow:0 4px 12px rgba(99,102,241,0.3);"
     )
-    name_style = f"color:{p['text_primary']};font-size:1.2rem;font-weight:700;margin-bottom:0.3rem;font-family:Inter,sans-serif;"
-    id_style = f"color:{p['text_muted']};font-size:0.8rem;font-family:monospace;margin-bottom:1.5rem;"
+    name_style = f"color:{p['text_primary']} !important;font-size:1.2rem;font-weight:700;margin-bottom:0.3rem;font-family:Inter,sans-serif;"
+    id_style = f"color:{p['text_muted']} !important;font-size:0.8rem;font-family:monospace;margin-bottom:1.5rem;"
     info_style = f"background:{p['bg_secondary']};border-radius:10px;padding:1rem;border:1px solid {p['border']};"
     row_style = "display:flex;justify-content:space-between;margin-bottom:0.5rem;"
-    label_s = f"color:{p['text_secondary']};font-size:0.88rem;"
-    val_s = f"color:{p['text_primary']};font-size:0.88rem;font-weight:500;"
+    label_s = f"color:{p['text_secondary']} !important;font-size:0.88rem;"
+    val_s = f"color:{p['text_primary']} !important;font-size:0.88rem;font-weight:500;"
 
     uid_short = user_id[:8] if user_id != "—" else "—"
     uid_med = user_id[:16] if user_id != "—" else "—"

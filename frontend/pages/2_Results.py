@@ -109,22 +109,21 @@ with col_bars:
         pct_val = metrics[pct_key]
         bar_bg = p['bg_secondary']
         label = ENGAGEMENT_LABELS[level]
-        txt_color = p['text_primary']
         inner_html = (
             f'<div style="display:flex;align-items:center;gap:12px;">'
             f'<span style="font-size:1.4rem;">{emoji_icon}</span>'
             f'<div style="flex:1;">'
-            f'<div style="font-weight:600;color:{txt_color};font-family:Inter,sans-serif;">{label}</div>'
+            f'<div style="font-weight:600;color:{p["text_primary"]} !important;font-family:Inter,sans-serif;">{label}</div>'
             f'<div style="margin-top:4px;height:8px;border-radius:4px;background:{bar_bg};overflow:hidden;">'
             f'<div style="width:{min(pct_val, 100)}%;height:100%;background:{color};border-radius:4px;transition:width 0.5s ease;"></div>'
             f'</div></div>'
-            f'<span style="font-weight:700;font-size:1.1rem;color:{color};font-family:Inter,sans-serif;">{pct_val}%</span>'
+            f'<span style="font-weight:700;font-size:1.1rem;color:{color} !important;font-family:Inter,sans-serif;">{pct_val}%</span>'
             f'</div>'
         )
         card(inner_html)
 
     st.markdown(
-        f'<p style="color:{p["text_secondary"]};font-size:0.88rem;margin-top:0.5rem;">'
+        f'<p style="color:{p["text_secondary"]} !important;font-size:0.88rem;margin-top:0.5rem;">'
         f'Based on <b>majority voting</b> across all frames for each of the '
         f'<b>{metrics["total_students"]}</b> tracked students.</p>',
         unsafe_allow_html=True,
@@ -187,8 +186,8 @@ with dcol1:
         card(
             f'<a href="{csv_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px;">'
             f'<span style="font-size:1.5rem;">📄</span>'
-            f'<div><div style="font-weight:600;color:{p["accent"]};font-family:Inter,sans-serif;">Download Raw CSV</div>'
-            f'<div style="font-size:0.8rem;color:{p["text_secondary"]};">Per-frame tracking data</div></div>'
+            f'<div><div style="font-weight:600;color:{p["accent"]} !important;font-family:Inter,sans-serif;">Download Raw CSV</div>'
+            f'<div style="font-size:0.8rem;color:{p["text_secondary"]} !important;">Per-frame tracking data</div></div>'
             f'</a>'
         )
     else:
@@ -200,8 +199,8 @@ with dcol2:
         card(
             f'<a href="{video_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px;">'
             f'<span style="font-size:1.5rem;">🎬</span>'
-            f'<div><div style="font-weight:600;color:{p["accent"]};font-family:Inter,sans-serif;">Download Annotated Video</div>'
-            f'<div style="font-size:0.8rem;color:{p["text_secondary"]};">Video with bounding boxes &amp; labels</div></div>'
+            f'<div><div style="font-weight:600;color:{p["accent"]} !important;font-family:Inter,sans-serif;">Download Annotated Video</div>'
+            f'<div style="font-size:0.8rem;color:{p["text_secondary"]} !important;">Video with bounding boxes &amp; labels</div></div>'
             f'</a>'
         )
     else:

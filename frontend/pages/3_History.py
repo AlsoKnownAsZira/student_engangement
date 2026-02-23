@@ -52,8 +52,8 @@ if not analyses:
     st.markdown(
         f'<div style="{empty_style}">'
         f'<div style="font-size:3rem;margin-bottom:0.8rem;">📭</div>'
-        f'<div style="font-size:1.1rem;font-weight:600;color:{p["text_primary"]};margin-bottom:0.4rem;">No analyses yet</div>'
-        f'<div style="color:{p["text_secondary"]};font-size:0.9rem;">Upload a classroom video to get started!</div>'
+        f'<div style="font-size:1.1rem;font-weight:600;color:{p["text_primary"]} !important;margin-bottom:0.4rem;">No analyses yet</div>'
+        f'<div style="color:{p["text_secondary"]} !important;font-size:0.9rem;">Upload a classroom video to get started!</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -63,7 +63,7 @@ if not analyses:
     st.stop()
 
 st.markdown(
-    f'<p style="color:{p["text_secondary"]};">Showing <b>{len(analyses)}</b> past analyses</p>',
+    f'<p style="color:{p["text_secondary"]} !important;">Showing <b>{len(analyses)}</b> past analyses</p>',
     unsafe_allow_html=True,
 )
 
@@ -87,9 +87,9 @@ for item in analyses:
         dot_style = "width:10px;height:10px;border-radius:50%;"
         dist_html = (
             f'<div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["engaged"]};"></div><span style="font-size:0.82rem;">Engaged <b>{eng:.0f}%</b></span></div>'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["moderately-engaged"]};"></div><span style="font-size:0.82rem;">Moderate <b>{mod:.0f}%</b></span></div>'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["disengaged"]};"></div><span style="font-size:0.82rem;">Disengaged <b>{dis:.0f}%</b></span></div>'
+            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Engaged <b>{eng:.0f}%</b></span></div>'
+            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["moderately-engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Moderate <b>{mod:.0f}%</b></span></div>'
+            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["disengaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Disengaged <b>{dis:.0f}%</b></span></div>'
             f'</div>'
         )
 
@@ -98,8 +98,8 @@ for item in analyses:
         f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:14px;"
         f"padding:1.2rem 1.5rem;margin-bottom:0.8rem;box-shadow:0 2px 8px {p['shadow']};"
     )
-    meta_style = f"display:flex;gap:24px;margin-top:8px;color:{p['text_secondary']};font-size:0.85rem;"
-    title_style = f"font-weight:700;font-size:1.05rem;color:{p['text_primary']};font-family:Inter,sans-serif;"
+    meta_style = f"display:flex;gap:24px;margin-top:8px;color:{p['text_secondary']} !important;font-size:0.85rem;"
+    title_style = f"font-weight:700;font-size:1.05rem;color:{p['text_primary']} !important;font-family:Inter,sans-serif;"
 
     st.markdown(
         f'<div style="{card_style}">'
@@ -107,7 +107,7 @@ for item in analyses:
         f'<span style="{title_style}">🎬 {filename}</span>'
         f'{badge}'
         f'</div>'
-        f'<div style="{meta_style}"><span>🕐 {created}</span><span>👥 {total_students} students</span><span>🎯 {avg_display}</span></div>'
+        f'<div style="{meta_style}"><span style="color:{p["text_secondary"]} !important;">🕐 {created}</span><span style="color:{p["text_secondary"]} !important;">👥 {total_students} students</span><span style="color:{p["text_secondary"]} !important;">🎯 {avg_display}</span></div>'
         f'{dist_html}'
         f'</div>',
         unsafe_allow_html=True,
