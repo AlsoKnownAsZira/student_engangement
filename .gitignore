@@ -1,0 +1,67 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Environment / Secrets ──
+.env
+venv/
+.venv/
+env/
+venv-*/
+
+# ── Model weights (large binary) ──
+*.pt
+models/*.pt
+
+# ── Video files (large) ──
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# ── CSV data files (large, generated) ──
+phase4_pipeline/*.csv
+outputs/**/*.csv
+
+# ── Large / generated output directories ──
+outputs/
+temp/
+backups/
+external-videos/
+
+# ── Phase 2 dataset (very large - 671k crops) ──
+phase2_dataset/person_crops_organized/
+phase2_dataset/person_crops/
+
+# ── Phase 3 training runs (large) ──
+phase3_training/runs/
+
+# ── Phase 4 analysis outputs ──
+phase4_pipeline/demo_analysis_no_gt/
+phase4_pipeline/demo_analysis_with_gt/
+phase4_pipeline/detailed_analysis/
+phase4_pipeline/sav_analysis/
+phase4_pipeline/sav_analysis_with_demo_gt/
+
+# ── Unused / old code ──
+unused/
+
+# ── IDE ──
+.vscode/
+.idea/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Streamlit ──
+.streamlit/
+
+# ── Gemini / AI assistant ──
+.gemini/
+.agents/

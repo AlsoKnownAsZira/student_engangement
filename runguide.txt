@@ -1,0 +1,23 @@
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload --port 8000
+
+pip install -r frontend/requirements.txt
+streamlit run frontend/app.py
+
+
+
+To start (pick one):
+
+Right-click start.ps1 → "Run with PowerShell"
+Or in any terminal: powershell -ExecutionPolicy Bypass -File start.ps1
+The script will:
+
+Check all required files exist (.env, models)
+Kill any leftover processes on ports 8000/8501
+Launch the backend in its own window and wait for ML models to load (~5-15s)
+Launch the frontend in its own window
+Open http://localhost:8501 in your browser automatically
+To stop (pick one):
+
+Close the two terminal windows that opened
+Or run stop.ps1: powershell -ExecutionPolicy Bypass -File stop.ps1

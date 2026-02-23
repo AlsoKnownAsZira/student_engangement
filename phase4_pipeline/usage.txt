@@ -1,0 +1,1 @@
+python full_pipeline.py  --video "D:\kuliah\Skripsi\aborted test\external_val\high\high.mp4"  --classifier "..\phase3_training\runs\classify\weights\best.pt"  --output "test_result_v2.mp4"  --limit 300  --preview
