@@ -20,6 +20,7 @@ from components.auth import (
     show_auth_page,
     show_user_sidebar,
 )
+from components.styles import inject_global_css, hero_section, feature_card, init_theme
 
 st.set_page_config(
     page_title=PAGE_TITLE,
@@ -29,33 +30,59 @@ st.set_page_config(
 )
 
 init_session_state()
+init_theme()
+inject_global_css()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────
 show_user_sidebar()
 
 # ── Main view ─────────────────────────────────────────────────────────────
 if is_logged_in():
-    st.title(f"{PAGE_ICON} {PAGE_TITLE}")
-    st.markdown(
-        """
-        Welcome! Use the sidebar to navigate:
-
-        - **Upload** — Upload a classroom video for engagement analysis
-        - **Results** — View the latest analysis results
-        - **History** — Browse all your past analyses
-        """
+    hero_section(
+        title=PAGE_TITLE,
+        subtitle="Analyze student engagement from classroom videos using AI-powered detection, tracking, and classification.",
+        emoji=PAGE_ICON,
     )
 
-    # Quick health check
+    # ── Feature cards ─────────────────────────────────────────────────
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        feature_card(
+            emoji="📤",
+            title="Upload Video",
+            description="Upload a classroom video and let AI analyze each student's engagement level.",
+            accent="#6366f1",
+        )
+
+    with col2:
+        feature_card(
+            emoji="📊",
+            title="View Results",
+            description="See detailed per-student engagement reports with interactive charts and annotated video.",
+            accent="#34d399",
+        )
+
+    with col3:
+        feature_card(
+            emoji="📋",
+            title="History",
+            description="Browse all your past analyses, compare results, and download reports.",
+            accent="#fbbf24",
+        )
+
+    st.markdown("")
+
+    # ── Quick health check ────────────────────────────────────────────
     from services.api_client import APIClient
 
     try:
         health = APIClient().health()
         if health.get("models_loaded"):
-            st.success(f"Backend online — models loaded (device: {health.get('device', 'N/A')})")
+            st.success(f"✅ Backend online — models loaded (device: {health.get('device', 'N/A')})")
         else:
-            st.warning("Backend is starting up — models are still loading…")
+            st.warning("⏳ Backend is starting up — models are still loading…")
     except Exception:
-        st.error("Cannot reach the backend API. Make sure FastAPI is running.")
+        st.error("❌ Cannot reach the backend API. Make sure FastAPI is running on port 8000.")
 else:
     show_auth_page()

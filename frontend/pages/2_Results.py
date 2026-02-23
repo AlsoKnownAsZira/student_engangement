@@ -1,5 +1,6 @@
 """
 Results page — display analysis output: video, charts, per-student table.
+Directly fetches results from session state — no manual ID input needed.
 """
 
 import sys
@@ -20,6 +21,7 @@ from components.charts import (
     engagement_summary_metrics,
 )
 from components.video_player import show_video
+from components.styles import inject_global_css, hero_section, section_header, card, init_theme, _palette
 from fe_config import (
     PAGE_TITLE,
     PAGE_ICON,
@@ -30,19 +32,27 @@ from fe_config import (
 
 st.set_page_config(page_title=f"Results | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
+init_theme()
+inject_global_css()
 show_user_sidebar()
-
-st.title("Analysis Results")
 
 # ── Determine which analysis to show ──────────────────────────────────────
 
 analysis_id = st.session_state.get("last_analysis_id")
-custom_id = st.text_input("Or enter an analysis ID:", value=analysis_id or "")
-if custom_id:
-    analysis_id = custom_id
 
 if not analysis_id:
-    st.info("No analysis selected. Upload a video or enter an analysis ID above.")
+    hero_section(
+        title="No Analysis Selected",
+        subtitle="Upload a video or select an analysis from History to view results.",
+        emoji="📊",
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📤 Go to Upload", type="primary", use_container_width=True):
+            st.switch_page("pages/1_Upload.py")
+    with col2:
+        if st.button("📋 Go to History", use_container_width=True):
+            st.switch_page("pages/3_History.py")
     st.stop()
 
 # ── Fetch data ────────────────────────────────────────────────────────────
@@ -62,25 +72,32 @@ if result["status"] != "completed":
 class_summary = result["class_summary"]
 students = result["students"]
 metrics = engagement_summary_metrics(class_summary)
+p = _palette()
+
+# ── Hero ──────────────────────────────────────────────────────────────────
+
+hero_section(
+    title="Analysis Results",
+    subtitle=f"Video: {result['original_filename']}",
+    emoji="📊",
+)
 
 # ── Header metrics ────────────────────────────────────────────────────────
 
-st.subheader(f"Video: {result['original_filename']}")
-
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Students", metrics["total_students"])
-col2.metric("Total Frames", metrics["total_frames"])
-col3.metric("Avg Confidence", f"{metrics['avg_score']}%")
+col1.metric("👥 Total Students", metrics["total_students"])
+col2.metric("🎞️ Total Frames", metrics["total_frames"])
+col3.metric("🎯 Avg Confidence", f"{metrics['avg_score']}%")
 if result.get("processing_time_seconds"):
-    col4.metric("Processing Time", f"{result['processing_time_seconds']:.1f}s")
+    col4.metric("⏱️ Processing Time", f"{result['processing_time_seconds']:.1f}s")
 else:
-    col4.metric("Total Detections", metrics["total_detections"])
+    col4.metric("📊 Total Detections", metrics["total_detections"])
 
 st.divider()
 
 # ── Engagement distribution overview ──────────────────────────────────────
 
-st.subheader("Class Engagement Overview")
+section_header("Class Engagement Overview", "📈")
 
 col_pie, col_bars = st.columns([1, 1])
 
@@ -89,39 +106,61 @@ with col_pie:
     st.plotly_chart(fig_pie, use_container_width=True)
 
 with col_bars:
-    ecol1, ecol2, ecol3 = st.columns(3)
-    ecol1.metric(
-        f"{ENGAGEMENT_EMOJI['engaged']} Engaged",
-        f"{metrics['engaged_pct']}%",
-    )
-    ecol2.metric(
-        f"{ENGAGEMENT_EMOJI['moderately-engaged']} Moderate",
-        f"{metrics['moderate_pct']}%",
-    )
-    ecol3.metric(
-        f"{ENGAGEMENT_EMOJI['disengaged']} Disengaged",
-        f"{metrics['disengaged_pct']}%",
-    )
+    # Engagement breakdown with colored cards
+    for level, emoji, pct_key, color in [
+        ("engaged", ENGAGEMENT_EMOJI["engaged"], "engaged_pct", ENGAGEMENT_COLORS["engaged"]),
+        ("moderately-engaged", ENGAGEMENT_EMOJI["moderately-engaged"], "moderate_pct", ENGAGEMENT_COLORS["moderately-engaged"]),
+        ("disengaged", ENGAGEMENT_EMOJI["disengaged"], "disengaged_pct", ENGAGEMENT_COLORS["disengaged"]),
+    ]:
+        pct_val = metrics[pct_key]
+        card(f"""
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:1.4rem;">{emoji}</span>
+                <div style="flex:1;">
+                    <div style="font-weight:600; color:{p['text_primary']}; font-family:'Inter',sans-serif;">
+                        {ENGAGEMENT_LABELS[level]}
+                    </div>
+                    <div style="
+                        margin-top:4px; height:8px; border-radius:4px;
+                        background: {p['bg_secondary']};
+                        overflow:hidden;
+                    ">
+                        <div style="
+                            width:{min(pct_val, 100)}%;
+                            height:100%;
+                            background:{color};
+                            border-radius:4px;
+                            transition:width 0.5s ease;
+                        "></div>
+                    </div>
+                </div>
+                <span style="font-weight:700; font-size:1.1rem; color:{color}; font-family:'Inter',sans-serif;">
+                    {pct_val}%
+                </span>
+            </div>
+        """)
 
-    st.markdown("---")
     st.markdown(
-        f"Based on **majority voting** across all frames for each of "
-        f"the **{metrics['total_students']}** tracked students."
+        f"<p style='color:{p['text_secondary']}; font-size:0.88rem; margin-top:0.5rem;'>"
+        f"Based on <b>majority voting</b> across all frames for each of the "
+        f"<b>{metrics['total_students']}</b> tracked students.</p>",
+        unsafe_allow_html=True,
     )
 
 st.divider()
 
 # ── Annotated video ───────────────────────────────────────────────────────
 
+section_header("Annotated Video", "🎬")
 show_video(result.get("output_video_url"))
 
 st.divider()
 
 # ── Per-student results ───────────────────────────────────────────────────
 
-st.subheader("Per-Student Engagement")
+section_header("Per-Student Engagement", "👥")
 
-tab_table, tab_bar, tab_stack = st.tabs(["Table", "Bar Chart", "Vote Breakdown"])
+tab_table, tab_bar, tab_stack = st.tabs(["📋 Table", "📊 Bar Chart", "📈 Vote Breakdown"])
 
 with tab_table:
     if students:
@@ -155,18 +194,44 @@ st.divider()
 
 # ── Downloads ─────────────────────────────────────────────────────────────
 
-st.subheader("Downloads")
+section_header("Downloads", "💾")
 
 dcol1, dcol2 = st.columns(2)
 
 with dcol1:
     if result.get("csv_download_url"):
-        st.markdown(f"[Download Raw CSV]({result['csv_download_url']})")
+        card(f"""
+            <a href="{result['csv_download_url']}" target="_blank" style="
+                text-decoration:none; display:flex; align-items:center; gap:10px;
+            ">
+                <span style="font-size:1.5rem;">📄</span>
+                <div>
+                    <div style="font-weight:600; color:{p['accent']}; font-family:'Inter',sans-serif;">Download Raw CSV</div>
+                    <div style="font-size:0.8rem; color:{p['text_secondary']};">Per-frame tracking data</div>
+                </div>
+            </a>
+        """)
     else:
         st.info("CSV not available.")
 
 with dcol2:
     if result.get("output_video_url"):
-        st.markdown(f"[Download Annotated Video]({result['output_video_url']})")
+        card(f"""
+            <a href="{result['output_video_url']}" target="_blank" style="
+                text-decoration:none; display:flex; align-items:center; gap:10px;
+            ">
+                <span style="font-size:1.5rem;">🎬</span>
+                <div>
+                    <div style="font-weight:600; color:{p['accent']}; font-family:'Inter',sans-serif;">Download Annotated Video</div>
+                    <div style="font-size:0.8rem; color:{p['text_secondary']};">Video with bounding boxes & labels</div>
+                </div>
+            </a>
+        """)
     else:
         st.info("Annotated video not available.")
+
+# ── Back button ───────────────────────────────────────────────────────────
+
+st.markdown("")
+if st.button("← Back to History", use_container_width=True):
+    st.switch_page("pages/3_History.py")

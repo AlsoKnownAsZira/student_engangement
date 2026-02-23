@@ -1,5 +1,5 @@
 """
-History page — browse past analyses.
+History page — browse past analyses with styled cards.
 """
 
 import sys
@@ -10,18 +10,31 @@ if _FRONTEND_DIR not in sys.path:
     sys.path.insert(0, _FRONTEND_DIR)
 
 import streamlit as st
-import pandas as pd
 
 from components.auth import require_auth, get_api_client, show_user_sidebar
-from fe_config import PAGE_TITLE, PAGE_ICON, ENGAGEMENT_EMOJI, ENGAGEMENT_LABELS
+from components.styles import (
+    inject_global_css, hero_section, section_header,
+    status_badge, init_theme, _palette,
+)
+from fe_config import (
+    PAGE_TITLE, PAGE_ICON,
+    ENGAGEMENT_EMOJI, ENGAGEMENT_LABELS, ENGAGEMENT_COLORS,
+)
 
 st.set_page_config(page_title=f"History | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
+init_theme()
+inject_global_css()
 show_user_sidebar()
 
-st.title("Analysis History")
+hero_section(
+    title="Analysis History",
+    subtitle="Browse and manage all your past analyses",
+    emoji="📋",
+)
 
 api = get_api_client()
+p = _palette()
 
 try:
     history = api.get_history()
@@ -32,55 +45,106 @@ except Exception as e:
 analyses = history.get("analyses", [])
 
 if not analyses:
-    st.info("You haven't analyzed any videos yet. Go to **Upload** to get started!")
+    st.markdown(f"""
+    <div style="
+        text-align:center; padding:3rem 1rem;
+        background:{p['bg_card']}; border:1px solid {p['border']};
+        border-radius:14px;
+    ">
+        <div style="font-size:3rem; margin-bottom:0.8rem;">📭</div>
+        <div style="font-size:1.1rem; font-weight:600; color:{p['text_primary']}; margin-bottom:0.4rem;">
+            No analyses yet
+        </div>
+        <div style="color:{p['text_secondary']}; font-size:0.9rem;">
+            Upload a classroom video to get started!
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("")
+    if st.button("📤 Go to Upload", type="primary", use_container_width=True):
+        st.switch_page("pages/1_Upload.py")
     st.stop()
 
-st.markdown(f"Showing **{len(analyses)}** past analyses.")
+st.markdown(f"<p style='color:{p['text_secondary']};'>Showing <b>{len(analyses)}</b> past analyses</p>", unsafe_allow_html=True)
 
-# ── Render each analysis as a card ────────────────────────────────────────
+# ── Render each analysis ──────────────────────────────────────────────────
 
 for item in analyses:
-    status_emoji = {
-        "completed": "✅",
-        "processing": "⏳",
-        "failed": "❌",
-        "uploading": "📤",
-    }.get(item["status"], "❔")
+    status = item["status"]
+    filename = item["original_filename"]
+    created = item.get("created_at", "N/A")[:16].replace("T", " ")
+    total_students = item.get("total_students", "—")
+    avg = item.get("avg_engagement_score")
+    avg_display = f"{round(avg * 100, 1)}%" if avg else "—"
+    dist = item.get("engagement_distribution")
 
-    with st.expander(
-        f"{status_emoji}  **{item['original_filename']}**  —  {item.get('created_at', 'N/A')[:19]}",
-        expanded=False,
-    ):
-        col1, col2, col3 = st.columns(3)
-        col1.markdown(f"**Status:** {item['status']}")
-        col2.markdown(f"**Students:** {item.get('total_students', '—')}")
-        avg = item.get("avg_engagement_score")
-        col3.markdown(f"**Avg Score:** {round(avg * 100, 1)}%" if avg else "**Avg Score:** —")
+    # ── Card header HTML ──────────────────────────────────────────────
+    dist_html = ""
+    if dist and status == "completed":
+        eng = dist.get("engaged", 0) * 100
+        mod = dist.get("moderately_engaged", dist.get("moderately-engaged", 0)) * 100
+        dis = dist.get("disengaged", 0) * 100
 
-        # Distribution mini-summary
-        dist = item.get("engagement_distribution")
-        if dist:
-            eng = dist.get("engaged", 0) * 100
-            mod = dist.get("moderately_engaged", dist.get("moderately-engaged", 0)) * 100
-            dis = dist.get("disengaged", 0) * 100
-            st.markdown(
-                f"{ENGAGEMENT_EMOJI['engaged']} Engaged: **{eng:.0f}%** · "
-                f"{ENGAGEMENT_EMOJI['moderately-engaged']} Moderate: **{mod:.0f}%** · "
-                f"{ENGAGEMENT_EMOJI['disengaged']} Disengaged: **{dis:.0f}%**"
-            )
+        dist_html = f"""
+        <div style="display:flex; gap:16px; margin-top:10px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:4px;">
+                <div style="width:10px;height:10px;border-radius:50%;background:{ENGAGEMENT_COLORS['engaged']};"></div>
+                <span style="font-size:0.82rem;">Engaged <b>{eng:.0f}%</b></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <div style="width:10px;height:10px;border-radius:50%;background:{ENGAGEMENT_COLORS['moderately-engaged']};"></div>
+                <span style="font-size:0.82rem;">Moderate <b>{mod:.0f}%</b></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <div style="width:10px;height:10px;border-radius:50%;background:{ENGAGEMENT_COLORS['disengaged']};"></div>
+                <span style="font-size:0.82rem;">Disengaged <b>{dis:.0f}%</b></span>
+            </div>
+        </div>
+        """
 
-        # Action buttons
-        bcol1, bcol2 = st.columns(2)
-        with bcol1:
-            if item["status"] == "completed":
-                if st.button("View Results", key=f"view_{item['analysis_id']}"):
-                    st.session_state["last_analysis_id"] = item["analysis_id"]
-                    st.switch_page("pages/2_Results.py")
-        with bcol2:
-            if st.button("Delete", key=f"del_{item['analysis_id']}"):
-                try:
-                    api.delete_analysis(item["analysis_id"])
-                    st.success("Deleted!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Delete failed: {e}")
+    st.markdown(f"""
+    <div style="
+        background:{p['bg_card']};
+        border:1px solid {p['border']};
+        border-radius:14px;
+        padding:1.2rem 1.5rem;
+        margin-bottom:0.8rem;
+        box-shadow:0 2px 8px {p['shadow']};
+        transition:all 0.2s ease;
+    ">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+                <span style="font-weight:700; font-size:1.05rem; color:{p['text_primary']}; font-family:'Inter',sans-serif;">
+                    🎬 {filename}
+                </span>
+            </div>
+            {status_badge(status)}
+        </div>
+        <div style="display:flex; gap:24px; margin-top:8px; color:{p['text_secondary']}; font-size:0.85rem;">
+            <span>🕐 {created}</span>
+            <span>👥 {total_students} students</span>
+            <span>🎯 {avg_display}</span>
+        </div>
+        {dist_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Action buttons ────────────────────────────────────────────────
+    bcol1, bcol2, bcol3 = st.columns([2, 2, 1])
+    with bcol1:
+        if status == "completed":
+            if st.button("📊 View Results", key=f"view_{item['analysis_id']}", type="primary", use_container_width=True):
+                st.session_state["last_analysis_id"] = item["analysis_id"]
+                st.switch_page("pages/2_Results.py")
+    with bcol2:
+        pass  # spacing
+    with bcol3:
+        if st.button("🗑️", key=f"del_{item['analysis_id']}", help="Delete this analysis"):
+            try:
+                api.delete_analysis(item["analysis_id"])
+                st.success("Deleted!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Delete failed: {e}")
+
+    st.markdown("<div style='height:4px;'></div>", unsafe_allow_html=True)
