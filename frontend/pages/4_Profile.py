@@ -11,7 +11,7 @@ if _FRONTEND_DIR not in sys.path:
 
 import streamlit as st
 from components.auth import require_auth, show_user_sidebar, logout
-from components.styles import inject_global_css, hero_section, card, init_theme, _palette
+from components.styles import inject_global_css, hero_section, init_theme, _palette
 from fe_config import PAGE_TITLE, PAGE_ICON
 
 st.set_page_config(page_title=f"Profile | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
@@ -25,72 +25,43 @@ email = st.session_state.get("user_email", "—")
 user_id = st.session_state.get("user_id", "—")
 initial = email[0].upper() if email and email != "—" else "U"
 
-hero_section(
-    title="Your Profile",
-    subtitle="Account information and settings",
-    emoji="👤",
-)
+hero_section(title="Your Profile", subtitle="Account information and settings", emoji="👤")
 
 # ── Profile card ──────────────────────────────────────────────────────────
 
 _, center, _ = st.columns([1, 2, 1])
 
 with center:
-    st.markdown(f"""
-    <div style="
-        background:{p['bg_card']};
-        border:1px solid {p['border']};
-        border-radius:16px;
-        padding:2rem;
-        text-align:center;
-        box-shadow:0 4px 16px {p['shadow']};
-    ">
-        <div style="
-            width:80px; height:80px;
-            background:linear-gradient(135deg, {p['accent']}, {p['accent_hover']}, #a78bfa);
-            border-radius:50%;
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            font-size:2rem;
-            font-weight:700;
-            color:#fff;
-            margin-bottom:1rem;
-            box-shadow:0 4px 12px rgba(99,102,241,0.3);
-        ">{initial}</div>
+    card_style = (
+        f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:16px;"
+        f"padding:2rem;text-align:center;box-shadow:0 4px 16px {p['shadow']};"
+    )
+    avatar_style = (
+        f"width:80px;height:80px;background:linear-gradient(135deg,{p['accent']},{p['accent_hover']},#a78bfa);"
+        f"border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
+        f"font-size:2rem;font-weight:700;color:#fff;margin-bottom:1rem;box-shadow:0 4px 12px rgba(99,102,241,0.3);"
+    )
+    name_style = f"color:{p['text_primary']};font-size:1.2rem;font-weight:700;margin-bottom:0.3rem;font-family:Inter,sans-serif;"
+    id_style = f"color:{p['text_muted']};font-size:0.8rem;font-family:monospace;margin-bottom:1.5rem;"
+    info_style = f"background:{p['bg_secondary']};border-radius:10px;padding:1rem;border:1px solid {p['border']};"
+    row_style = "display:flex;justify-content:space-between;margin-bottom:0.5rem;"
+    label_s = f"color:{p['text_secondary']};font-size:0.88rem;"
+    val_s = f"color:{p['text_primary']};font-size:0.88rem;font-weight:500;"
 
-        <div style="
-            color:{p['text_primary']};
-            font-size:1.2rem;
-            font-weight:700;
-            margin-bottom:0.3rem;
-            font-family:'Inter',sans-serif;
-        ">{email}</div>
+    uid_short = user_id[:8] if user_id != "—" else "—"
+    uid_med = user_id[:16] if user_id != "—" else "—"
 
-        <div style="
-            color:{p['text_muted']};
-            font-size:0.8rem;
-            font-family:monospace;
-            margin-bottom:1.5rem;
-        ">ID: {user_id[:8]}…</div>
-
-        <div style="
-            background:{p['bg_secondary']};
-            border-radius:10px;
-            padding:1rem;
-            border:1px solid {p['border']};
-        ">
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                <span style="color:{p['text_secondary']}; font-size:0.88rem;">Email</span>
-                <span style="color:{p['text_primary']}; font-size:0.88rem; font-weight:500;">{email}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between;">
-                <span style="color:{p['text_secondary']}; font-size:0.88rem;">User ID</span>
-                <span style="color:{p['text_primary']}; font-size:0.88rem; font-family:monospace;">{user_id[:16]}…</span>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="{card_style}">'
+        f'<div style="{avatar_style}">{initial}</div>'
+        f'<div style="{name_style}">{email}</div>'
+        f'<div style="{id_style}">ID: {uid_short}…</div>'
+        f'<div style="{info_style}">'
+        f'<div style="{row_style}"><span style="{label_s}">Email</span><span style="{val_s}">{email}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">User ID</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
 
     st.markdown("")
     if st.button("🚪 Logout", type="primary", use_container_width=True):

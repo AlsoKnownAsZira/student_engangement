@@ -15,19 +15,14 @@ import pandas as pd
 
 from components.auth import require_auth, get_api_client, show_user_sidebar
 from components.charts import (
-    engagement_pie_chart,
-    student_engagement_bar,
-    vote_breakdown_stacked,
-    engagement_summary_metrics,
+    engagement_pie_chart, student_engagement_bar,
+    vote_breakdown_stacked, engagement_summary_metrics,
 )
 from components.video_player import show_video
 from components.styles import inject_global_css, hero_section, section_header, card, init_theme, _palette
 from fe_config import (
-    PAGE_TITLE,
-    PAGE_ICON,
-    ENGAGEMENT_COLORS,
-    ENGAGEMENT_LABELS,
-    ENGAGEMENT_EMOJI,
+    PAGE_TITLE, PAGE_ICON,
+    ENGAGEMENT_COLORS, ENGAGEMENT_LABELS, ENGAGEMENT_EMOJI,
 )
 
 st.set_page_config(page_title=f"Results | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
@@ -106,44 +101,32 @@ with col_pie:
     st.plotly_chart(fig_pie, use_container_width=True)
 
 with col_bars:
-    # Engagement breakdown with colored cards
-    for level, emoji, pct_key, color in [
+    for level, emoji_icon, pct_key, color in [
         ("engaged", ENGAGEMENT_EMOJI["engaged"], "engaged_pct", ENGAGEMENT_COLORS["engaged"]),
         ("moderately-engaged", ENGAGEMENT_EMOJI["moderately-engaged"], "moderate_pct", ENGAGEMENT_COLORS["moderately-engaged"]),
         ("disengaged", ENGAGEMENT_EMOJI["disengaged"], "disengaged_pct", ENGAGEMENT_COLORS["disengaged"]),
     ]:
         pct_val = metrics[pct_key]
-        card(f"""
-            <div style="display:flex; align-items:center; gap:12px;">
-                <span style="font-size:1.4rem;">{emoji}</span>
-                <div style="flex:1;">
-                    <div style="font-weight:600; color:{p['text_primary']}; font-family:'Inter',sans-serif;">
-                        {ENGAGEMENT_LABELS[level]}
-                    </div>
-                    <div style="
-                        margin-top:4px; height:8px; border-radius:4px;
-                        background: {p['bg_secondary']};
-                        overflow:hidden;
-                    ">
-                        <div style="
-                            width:{min(pct_val, 100)}%;
-                            height:100%;
-                            background:{color};
-                            border-radius:4px;
-                            transition:width 0.5s ease;
-                        "></div>
-                    </div>
-                </div>
-                <span style="font-weight:700; font-size:1.1rem; color:{color}; font-family:'Inter',sans-serif;">
-                    {pct_val}%
-                </span>
-            </div>
-        """)
+        bar_bg = p['bg_secondary']
+        label = ENGAGEMENT_LABELS[level]
+        txt_color = p['text_primary']
+        inner_html = (
+            f'<div style="display:flex;align-items:center;gap:12px;">'
+            f'<span style="font-size:1.4rem;">{emoji_icon}</span>'
+            f'<div style="flex:1;">'
+            f'<div style="font-weight:600;color:{txt_color};font-family:Inter,sans-serif;">{label}</div>'
+            f'<div style="margin-top:4px;height:8px;border-radius:4px;background:{bar_bg};overflow:hidden;">'
+            f'<div style="width:{min(pct_val, 100)}%;height:100%;background:{color};border-radius:4px;transition:width 0.5s ease;"></div>'
+            f'</div></div>'
+            f'<span style="font-weight:700;font-size:1.1rem;color:{color};font-family:Inter,sans-serif;">{pct_val}%</span>'
+            f'</div>'
+        )
+        card(inner_html)
 
     st.markdown(
-        f"<p style='color:{p['text_secondary']}; font-size:0.88rem; margin-top:0.5rem;'>"
-        f"Based on <b>majority voting</b> across all frames for each of the "
-        f"<b>{metrics['total_students']}</b> tracked students.</p>",
+        f'<p style="color:{p["text_secondary"]};font-size:0.88rem;margin-top:0.5rem;">'
+        f'Based on <b>majority voting</b> across all frames for each of the '
+        f'<b>{metrics["total_students"]}</b> tracked students.</p>',
         unsafe_allow_html=True,
     )
 
@@ -199,38 +182,30 @@ section_header("Downloads", "💾")
 dcol1, dcol2 = st.columns(2)
 
 with dcol1:
-    if result.get("csv_download_url"):
-        card(f"""
-            <a href="{result['csv_download_url']}" target="_blank" style="
-                text-decoration:none; display:flex; align-items:center; gap:10px;
-            ">
-                <span style="font-size:1.5rem;">📄</span>
-                <div>
-                    <div style="font-weight:600; color:{p['accent']}; font-family:'Inter',sans-serif;">Download Raw CSV</div>
-                    <div style="font-size:0.8rem; color:{p['text_secondary']};">Per-frame tracking data</div>
-                </div>
-            </a>
-        """)
+    csv_url = result.get("csv_download_url")
+    if csv_url:
+        card(
+            f'<a href="{csv_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px;">'
+            f'<span style="font-size:1.5rem;">📄</span>'
+            f'<div><div style="font-weight:600;color:{p["accent"]};font-family:Inter,sans-serif;">Download Raw CSV</div>'
+            f'<div style="font-size:0.8rem;color:{p["text_secondary"]};">Per-frame tracking data</div></div>'
+            f'</a>'
+        )
     else:
         st.info("CSV not available.")
 
 with dcol2:
-    if result.get("output_video_url"):
-        card(f"""
-            <a href="{result['output_video_url']}" target="_blank" style="
-                text-decoration:none; display:flex; align-items:center; gap:10px;
-            ">
-                <span style="font-size:1.5rem;">🎬</span>
-                <div>
-                    <div style="font-weight:600; color:{p['accent']}; font-family:'Inter',sans-serif;">Download Annotated Video</div>
-                    <div style="font-size:0.8rem; color:{p['text_secondary']};">Video with bounding boxes & labels</div>
-                </div>
-            </a>
-        """)
+    video_url = result.get("output_video_url")
+    if video_url:
+        card(
+            f'<a href="{video_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px;">'
+            f'<span style="font-size:1.5rem;">🎬</span>'
+            f'<div><div style="font-weight:600;color:{p["accent"]};font-family:Inter,sans-serif;">Download Annotated Video</div>'
+            f'<div style="font-size:0.8rem;color:{p["text_secondary"]};">Video with bounding boxes &amp; labels</div></div>'
+            f'</a>'
+        )
     else:
         st.info("Annotated video not available.")
-
-# ── Back button ───────────────────────────────────────────────────────────
 
 st.markdown("")
 if st.button("← Back to History", use_container_width=True):
