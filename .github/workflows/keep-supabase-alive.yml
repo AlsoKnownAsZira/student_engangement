@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════
+# Keep Supabase project alive — prevent auto-pause on free tier
+# Runs every 3 days, sends a simple DB query to register activity
+# ═══════════════════════════════════════════════════════════════════
+
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every 3 days (Mon, Thu, Sun)
+    - cron: "0 0 */3 * *"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database
+        run: |
+          echo "Pinging Supabase to prevent auto-pause..."
+
+          # Query the analyses table (simple SELECT to register activity)
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/analyses?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}")
+
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Supabase is alive! (Status: $HTTP_STATUS)"
+          else
+            echo "⚠️ Unexpected status: $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Ping Supabase Auth
+        run: |
+          # Also ping auth endpoint for extra activity
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/auth/v1/settings" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}")
+
+          echo "Auth endpoint status: $HTTP_STATUS"
