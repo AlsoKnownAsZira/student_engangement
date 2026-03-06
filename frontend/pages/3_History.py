@@ -113,15 +113,15 @@ for item in analyses:
         unsafe_allow_html=True,
     )
 
-    # Action buttons
-    bcol1, bcol2, bcol3 = st.columns([2, 2, 1])
+    # Action buttons — clean row with proper proportions
+    bcol1, bcol2 = st.columns([5, 1])
     with bcol1:
         if status == "completed":
             if st.button("📊 View Results", key=f"view_{item['analysis_id']}", type="primary", use_container_width=True):
                 st.session_state["last_analysis_id"] = item["analysis_id"]
                 st.switch_page("pages/2_Results.py")
-    with bcol3:
-        if st.button("🗑️", key=f"del_{item['analysis_id']}", help="Delete this analysis"):
+    with bcol2:
+        if st.button("🗑️ Delete", key=f"del_{item['analysis_id']}", help="Delete this analysis", use_container_width=True):
             try:
                 api.delete_analysis(item["analysis_id"])
                 st.success("Deleted!")
@@ -129,4 +129,4 @@ for item in analyses:
             except Exception as e:
                 st.error(f"Delete failed: {e}")
 
-    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)

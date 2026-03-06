@@ -42,5 +42,5 @@ ENGAGEMENT_EMOJI = {
 ENGAGEMENT_CHART_COLORS = {
     "engaged": "#34d399",
     "moderately-engaged": "#fbbf24",
-    "disengaged": "#f87171",
+    "disengaged": "#fb7185",
 }

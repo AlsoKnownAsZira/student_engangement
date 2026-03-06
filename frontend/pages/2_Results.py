@@ -184,9 +184,9 @@ with dcol1:
     csv_url = result.get("csv_download_url")
     if csv_url:
         card(
-            f'<a href="{csv_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px;">'
-            f'<span style="font-size:1.5rem;">📄</span>'
-            f'<div><div style="font-weight:600;color:{p["accent"]} !important;font-family:Inter,sans-serif;">Download Raw CSV</div>'
+            f'<a href="{csv_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:12px;">'
+            f'<span style="font-size:1.6rem;filter:drop-shadow(0 0 6px rgba(56,189,248,0.3));">📄</span>'
+            f'<div><div style="font-weight:700;color:{p["accent"]} !important;font-family:Outfit,sans-serif;">Download Raw CSV</div>'
             f'<div style="font-size:0.8rem;color:{p["text_secondary"]} !important;">Per-frame tracking data</div></div>'
             f'</a>'
         )
@@ -197,15 +197,17 @@ with dcol2:
     video_url = result.get("output_video_url")
     if video_url:
         card(
-            f'<a href="{video_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px;">'
-            f'<span style="font-size:1.5rem;">🎬</span>'
-            f'<div><div style="font-weight:600;color:{p["accent"]} !important;font-family:Inter,sans-serif;">Download Annotated Video</div>'
+            f'<a href="{video_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:12px;">'
+            f'<span style="font-size:1.6rem;filter:drop-shadow(0 0 6px rgba(167,139,250,0.3));">🎬</span>'
+            f'<div><div style="font-weight:700;color:{p["accent2"]} !important;font-family:Outfit,sans-serif;">Download Annotated Video</div>'
             f'<div style="font-size:0.8rem;color:{p["text_secondary"]} !important;">Video with bounding boxes &amp; labels</div></div>'
             f'</a>'
         )
     else:
         st.info("Annotated video not available.")
 
-st.markdown("")
-if st.button("← Back to History", use_container_width=True):
-    st.switch_page("pages/3_History.py")
+st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
+_, btn_col, _ = st.columns([1, 2, 1])
+with btn_col:
+    if st.button("← Back to History", use_container_width=True):
+        st.switch_page("pages/3_History.py")

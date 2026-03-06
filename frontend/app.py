@@ -52,7 +52,7 @@ if is_logged_in():
             emoji="📤",
             title="Upload Video",
             description="Upload a classroom video and let AI analyze each student's engagement level.",
-            accent="#6366f1",
+            accent="#38bdf8",
         )
 
     with col2:
@@ -68,7 +68,7 @@ if is_logged_in():
             emoji="📋",
             title="History",
             description="Browse all your past analyses, compare results, and download reports.",
-            accent="#fbbf24",
+            accent="#a78bfa",
         )
 
     st.markdown("")
