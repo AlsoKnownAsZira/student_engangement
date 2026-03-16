@@ -7,38 +7,48 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # Runs at 00:00 UTC every 3 days (Mon, Thu, Sun)
-    - cron: "0 0 */3 * *"
+    # Runs at 08:14 UTC every 3 days (off-peak time to avoid GitHub Actions delays)
+    - cron: "14 8 */3 * *"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase Database
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Ping Supabase Database (Node.js SDK)
         run: |
-          echo "Pinging Supabase to prevent auto-pause..."
+          echo "Pinging REST API using Node to simulate real client..."
+          node -e "
+            fetch('${{ secrets.SUPABASE_URL }}/rest/v1/analyses?select=id&limit=1', {
+              headers: {
+                'apikey': '${{ secrets.SUPABASE_KEY }}',
+                'Authorization': 'Bearer ${{ secrets.SUPABASE_KEY }}',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+              }
+            }).then(r => {
+              console.log('Database Ping Status:', r.status);
+              if (!r.ok) process.exit(1);
+            }).catch(e => {
+              console.error(e);
+              process.exit(1);
+            });
+          "
 
-          # Query the analyses table (simple SELECT to register activity)
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/analyses?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}")
-
-          echo "HTTP Status: $HTTP_STATUS"
-
-          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
-            echo "✅ Supabase is alive! (Status: $HTTP_STATUS)"
-          else
-            echo "⚠️ Unexpected status: $HTTP_STATUS"
-            exit 1
-          fi
-
-      - name: Ping Supabase Auth
+      - name: Ping Supabase Auth (Node.js SDK)
         run: |
-          # Also ping auth endpoint for extra activity
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/auth/v1/settings" \
-            -H "apikey: ${{ secrets.SUPABASE_KEY }}")
-
-          echo "Auth endpoint status: $HTTP_STATUS"
+          echo "Pinging Auth using Node..."
+          node -e "
+            fetch('${{ secrets.SUPABASE_URL }}/auth/v1/settings', {
+              headers: {
+                'apikey': '${{ secrets.SUPABASE_KEY }}',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+              }
+            }).then(r => {
+              console.log('Auth Ping Status:', r.status);
+            }).catch(e => console.error(e));
+          "
