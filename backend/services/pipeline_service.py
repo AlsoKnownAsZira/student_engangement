@@ -53,8 +53,7 @@ class PipelineManager:
         logger.info("Loading ML models …")
         start = time.time()
         self._pipeline = FullPipeline(
-            detection_model=settings.detection_model_abs,
-            classifier_model=settings.classifier_model_abs,
+            main_model=settings.classifier_model_abs,
             tracker_config=settings.TRACKER_CONFIG,
             conf_threshold=settings.CONF_THRESHOLD,
             iou_threshold=settings.IOU_THRESHOLD,

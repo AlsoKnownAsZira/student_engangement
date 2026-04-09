@@ -28,6 +28,10 @@ models/*.pt
 phase4_pipeline/*.csv
 outputs/**/*.csv
 
+#dataset assets
+dataset_yolo_split/
+dataset_yolo_split.zip
+
 # ── Large / generated output directories ──
 outputs/
 temp/

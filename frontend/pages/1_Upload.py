@@ -9,6 +9,8 @@ _FRONTEND_DIR = str(Path(__file__).resolve().parent.parent)
 if _FRONTEND_DIR not in sys.path:
     sys.path.insert(0, _FRONTEND_DIR)
 
+import requests as _requests
+
 import time
 import streamlit as st
 
@@ -73,41 +75,48 @@ if uploaded is not None:
     if st.button("🚀 Analyze Engagement", type="primary", use_container_width=True):
         api = get_api_client()
 
-        with st.spinner("Uploading video…"):
+        with st.spinner("Mengunggah video ke server…"):
             try:
                 resp = api.upload_video(uploaded, uploaded.name)
-            except Exception as e:
-                st.error(f"Upload failed: {e}")
+
+            except _requests.exceptions.ReadTimeout:
+                # Backend mungkin sudah menerima video tapi response terlambat.
+                # Arahkan user ke History daripada tampilkan error teknis.
+                st.warning(
+                    "⏱️ **Server sedang memproses video Anda.**  \n"
+                    "Koneksi ke server timeout, tapi video kemungkinan besar "
+                    "sudah diterima dan sedang diproses.  \n\n"
+                    "Silakan cek halaman **History** untuk memantau status analisis."
+                )
+                if st.button("📋 Buka History", type="primary"):
+                    st.switch_page("pages/3_History.py")
                 st.stop()
 
+            except _requests.exceptions.ConnectionError:
+                st.error(
+                    "❌ **Tidak bisa terhubung ke server.**  \n"
+                    "Pastikan backend sudah berjalan di `http://localhost:8000`."
+                )
+                st.stop()
+
+            except Exception as e:
+                st.error(
+                    f"❌ **Upload gagal.**  \n"
+                    f"Detail teknis: `{e}`  \n\n"
+                    f"Coba lagi atau cek halaman History jika video sudah pernah diupload."
+                )
+                if st.button("📋 Cek History", key="err_history"):
+                    st.switch_page("pages/3_History.py")
+                st.stop()
+
+        # Upload berhasil — langsung arahkan ke History untuk polling
         analysis_id = resp["analysis_id"]
-        st.info(f"Processing started (ID: `{analysis_id}`)")
-
-        progress_bar = st.progress(0, text="Processing video…")
-        status_placeholder = st.empty()
-
-        tick = 0
-        while True:
-            time.sleep(STATUS_POLL_INTERVAL)
-            tick += 1
-            try:
-                status_resp = api.get_status(analysis_id)
-            except Exception:
-                status_placeholder.warning("Lost connection — retrying…")
-                continue
-
-            current_status = status_resp["status"]
-
-            if current_status == "completed":
-                progress_bar.progress(100, text="Done!")
-                st.success("🎉 Analysis complete!")
-                st.session_state["last_analysis_id"] = analysis_id
-                st.switch_page("pages/2_Results.py")
-                break
-            elif current_status == "failed":
-                progress_bar.empty()
-                st.error(f"Processing failed: {status_resp.get('error_message', 'Unknown error')}")
-                break
-            else:
-                pct = min(95, tick * 5)
-                progress_bar.progress(pct, text=f"Processing… ({current_status})")
+        st.success(
+            f"✅ **Video berhasil dikirim!**  \n"
+            f"Pipeline analisis sedang berjalan di background.  \n"
+            f"ID Analisis: `{analysis_id}`"
+        )
+        st.info("🔄 Anda akan diarahkan ke halaman History untuk memantau progress…")
+        time.sleep(2)
+        st.session_state["last_analysis_id"] = analysis_id
+        st.switch_page("pages/3_History.py")

@@ -9,6 +9,8 @@ _FRONTEND_DIR = str(Path(__file__).resolve().parent.parent)
 if _FRONTEND_DIR not in sys.path:
     sys.path.insert(0, _FRONTEND_DIR)
 
+import time
+from datetime import datetime, timezone
 import streamlit as st
 
 from components.auth import require_auth, get_api_client, show_user_sidebar
@@ -44,6 +46,22 @@ except Exception as e:
 
 analyses = history.get("analyses", [])
 
+# ── Cek apakah ada yang masih processing ─────────────────────────────────
+has_processing = any(a["status"] == "processing" for a in analyses)
+
+# Header row dengan tombol refresh manual
+col_title, col_btn = st.columns([6, 1])
+with col_title:
+    st.markdown(
+        f'<p style="color:{p["text_secondary"]} !important;">Showing <b>{len(analyses)}</b> past analyses'
+        + (" — 🔴 ada yang sedang diproses, halaman akan refresh otomatis" if has_processing else "")
+        + "</p>",
+        unsafe_allow_html=True,
+    )
+with col_btn:
+    if st.button("🔄 Refresh", use_container_width=True):
+        st.rerun()
+
 if not analyses:
     empty_style = (
         f"text-align:center;padding:3rem 1rem;background:{p['bg_card']};"
@@ -62,21 +80,31 @@ if not analyses:
         st.switch_page("pages/1_Upload.py")
     st.stop()
 
-st.markdown(
-    f'<p style="color:{p["text_secondary"]} !important;">Showing <b>{len(analyses)}</b> past analyses</p>',
-    unsafe_allow_html=True,
-)
-
 # ── Render each analysis ──────────────────────────────────────────────────
 
 for item in analyses:
     status = item["status"]
     filename = item["original_filename"]
     created = item.get("created_at", "N/A")[:16].replace("T", " ")
-    total_students = item.get("total_students", "—")
+    total_students = item.get("total_students", "None")
     avg = item.get("avg_engagement_score")
     avg_display = f"{round(avg * 100, 1)}%" if avg else "—"
     dist = item.get("engagement_distribution")
+
+    # Hitung elapsed time untuk item yang masih processing
+    elapsed_str = ""
+    if status == "processing":
+        try:
+            created_dt = datetime.fromisoformat(
+                item.get("created_at", "").replace("Z", "+00:00")
+            )
+            elapsed_sec = int((datetime.now(timezone.utc) - created_dt).total_seconds())
+            if elapsed_sec < 60:
+                elapsed_str = f" ({elapsed_sec}s)"
+            else:
+                elapsed_str = f" ({elapsed_sec // 60}m {elapsed_sec % 60}s)"
+        except Exception:
+            pass
 
     # Build distribution dots HTML
     dist_html = ""
@@ -94,6 +122,24 @@ for item in analyses:
         )
 
     badge = status_badge(status)
+    processing_note = ""
+    if status == "processing":
+        processing_note = (
+            f'<div style="margin-top:10px;padding:8px 12px;background:rgba(255,165,0,0.1);'
+            f'border-left:3px solid #FFA500;border-radius:4px;font-size:0.83rem;'
+            f'color:{p["text_secondary"]} !important;">'
+            f'⏳ Sedang memproses video{elapsed_str} — halaman akan refresh otomatis setiap 10 detik.'
+            f'</div>'
+        )
+    elif status == "failed":
+        err_msg = item.get("error_message", "Unknown error")
+        processing_note = (
+            f'<div style="margin-top:10px;padding:8px 12px;background:rgba(255,0,0,0.08);'
+            f'border-left:3px solid #FF4444;border-radius:4px;font-size:0.83rem;'
+            f'color:{p["text_secondary"]} !important;">'
+            f'❌ Gagal: {err_msg[:120]}'
+            f'</div>'
+        )
     card_style = (
         f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:14px;"
         f"padding:1.2rem 1.5rem;margin-bottom:0.8rem;box-shadow:0 2px 8px {p['shadow']};"
@@ -104,11 +150,12 @@ for item in analyses:
     st.markdown(
         f'<div style="{card_style}">'
         f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
-        f'<span style="{title_style}">🎬 {filename}</span>'
+        f'<span style="{title_style}">🎥 {filename}</span>'
         f'{badge}'
         f'</div>'
         f'<div style="{meta_style}"><span style="color:{p["text_secondary"]} !important;">🕐 {created}</span><span style="color:{p["text_secondary"]} !important;">👥 {total_students} students</span><span style="color:{p["text_secondary"]} !important;">🎯 {avg_display}</span></div>'
         f'{dist_html}'
+        f'{processing_note}'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -130,3 +177,8 @@ for item in analyses:
                 st.error(f"Delete failed: {e}")
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+
+# ── Auto-refresh jika ada yang masih processing ───────────────────────
+if has_processing:
+    time.sleep(10)
+    st.rerun()

@@ -99,7 +99,7 @@ def upload_file(bucket: str, storage_path: str, local_path: str, content_type: s
         client.storage.from_(bucket).upload(
             path=storage_path,
             file=f,
-            file_options={"content-type": content_type},
+            file_options={"content-type": content_type, "upsert": "true"},
         )
     return storage_path
 

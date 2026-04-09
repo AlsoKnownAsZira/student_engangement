@@ -43,6 +43,9 @@ async def upload_video(
     Upload a classroom video.  Processing starts in the background;
     poll ``/api/videos/{analysis_id}/status`` for progress.
     """
+    import time as _time
+    t0 = _time.time()
+
     # Validate extension
     if not video_service.validate_extension(file.filename):
         raise HTTPException(
@@ -52,35 +55,35 @@ async def upload_video(
 
     # Validate file size (read into memory check — for streaming, use middleware)
     contents = await file.read()
+    logger.info(f"[UPLOAD] file.read() done in {_time.time()-t0:.2f}s  size={len(contents)/1024/1024:.1f}MB")
+
     if len(contents) > settings.max_video_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File too large. Max {settings.MAX_VIDEO_SIZE_MB} MB.",
         )
 
-    # Save to temp
+    # Save to temp — this is local disk, fast
+    t1 = _time.time()
     temp_input, uid = video_service.save_temp_upload(
         io.BytesIO(contents), file.filename
     )
+    logger.info(f"[UPLOAD] save_temp done in {_time.time()-t1:.2f}s")
 
-    # Upload original to Supabase Storage
+    # Pre-compute the storage path so we can store it in DB immediately
     storage_input_path = f"{user['user_id']}/{uid}/input{Path(file.filename).suffix}"
-    try:
-        supabase_service.upload_file("input-videos", storage_input_path, temp_input)
-    except Exception as e:
-        logger.error(f"Supabase upload failed: {e}")
-        video_service.cleanup_temp(uid)
-        raise HTTPException(status_code=500, detail="Failed to upload video to storage.")
 
-    # Create DB row
+    # Create DB row now (fast — just a Supabase DB insert)
+    t2 = _time.time()
     analysis_row = supabase_service.create_analysis(
         user_id=user["user_id"],
         original_filename=file.filename,
         input_video_path=storage_input_path,
     )
     analysis_id = analysis_row["id"]
+    logger.info(f"[UPLOAD] create_analysis done in {_time.time()-t2:.2f}s  id={analysis_id}")
 
-    # Schedule background processing
+    # Schedule background processing (includes Supabase Storage upload)
     background_tasks.add_task(
         _process_video_task,
         analysis_id=analysis_id,
@@ -88,9 +91,13 @@ async def upload_video(
         uid=uid,
         temp_input=temp_input,
         original_filename=file.filename,
+        storage_input_path=storage_input_path,
     )
 
+    logger.info(f"[UPLOAD] total handler time {_time.time()-t0:.2f}s — returning 202")
+    # Return immediately — frontend polls /status for progress
     return AnalysisCreate(analysis_id=analysis_id, status=AnalysisStatus.PROCESSING)
+
 
 
 # ── Status polling ────────────────────────────────────────────────────────
@@ -117,19 +124,28 @@ async def _process_video_task(
     uid: str,
     temp_input: str,
     original_filename: str,
+    storage_input_path: str,
 ):
     """
     Heavy-lift background task:
-    1. Run ML pipeline
-    2. Majority-vote analysis
-    3. Upload outputs to Supabase
-    4. Persist results to DB
-    5. Clean up temp files
+    1. Upload input video to Supabase Storage
+    2. Run ML pipeline
+    3. Majority-vote analysis
+    4. Upload outputs to Supabase
+    5. Persist results to DB
+    6. Clean up temp files
     """
     try:
         supabase_service.update_analysis(analysis_id, status="processing")
 
-        # 1. Run pipeline
+        # 1. Upload input video to Supabase Storage (moved here from request handler)
+        try:
+            supabase_service.upload_file("input-videos", storage_input_path, temp_input)
+        except Exception as e:
+            logger.warning(f"Input video Supabase upload failed (non-fatal): {e}")
+            # Non-fatal — pipeline can still run from temp file
+
+        # 2. Run pipeline
         temp_output = video_service.get_temp_output_path(uid)
         df, h264_video_path, elapsed = await pipeline_manager.process(
             temp_input, temp_output
@@ -143,10 +159,10 @@ async def _process_video_task(
             )
             return
 
-        # 2. Majority-vote analysis
+        # 3. Majority-vote analysis
         report = analysis_service.analyse(df)
 
-        # 3. Save CSV to temp then upload
+        # 4. Save CSV to temp then upload
         csv_temp = str(Path(temp_input).parent / "tracking_data.csv")
         df.to_csv(csv_temp, index=False)
 
@@ -158,7 +174,7 @@ async def _process_video_task(
             "output-videos", storage_csv_path, csv_temp, content_type="text/csv"
         )
 
-        # 4. Persist to DB
+        # 5. Persist to DB
         class_summary = report["class_summary"]
         supabase_service.update_analysis(
             analysis_id,
@@ -190,3 +206,4 @@ async def _process_video_task(
         )
     finally:
         video_service.cleanup_temp(uid)
+
