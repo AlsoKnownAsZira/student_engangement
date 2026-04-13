@@ -10,7 +10,9 @@ if _FRONTEND_DIR not in sys.path:
     sys.path.insert(0, _FRONTEND_DIR)
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+WIB = timezone(timedelta(hours=7))
 import streamlit as st
 
 from components.auth import require_auth, get_api_client, show_user_sidebar
@@ -85,7 +87,15 @@ if not analyses:
 for item in analyses:
     status = item["status"]
     filename = item["original_filename"]
-    created = item.get("created_at", "N/A")[:16].replace("T", " ")
+    created_raw = item.get("created_at", "")
+    try:
+        created = (
+            datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+            .astimezone(WIB)
+            .strftime("%Y-%m-%d %H:%M")
+        )
+    except (ValueError, AttributeError):
+        created = created_raw[:16].replace("T", " ")
     total_students = item.get("total_students", "None")
     avg = item.get("avg_engagement_score")
     avg_display = f"{round(avg * 100, 1)}%" if avg else "—"
