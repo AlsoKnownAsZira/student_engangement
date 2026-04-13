@@ -2,6 +2,18 @@
 Phase 4: Full Pipeline with Trained Model - 1-MODEL VERSION
 Handles Object Detection & Tracking in a single pass.
 Maps model class names to standard format: engaged/moderately-engaged/disengaged
+
+v2 Improvements:
+  - EngagementSmoother: temporal voting over N frames to stabilize labels
+  - Custom BotSORT tracker (custom_botsort.yaml) with tuned thresholds
+  - Lower conf_threshold (0.2) to catch small/distant students
+
+v3 Improvements (SAHI mode):
+  - Optional SAHI (Slicing Aided Hyper Inference) via --sahi flag
+  - Splits each frame into overlapping tiles before detection,
+    improving recall for small/distant students (63% of objects <1% frame area)
+  - SAHI mode uses supervision ByteTrack as tracker
+  - Install deps: pip install sahi supervision
 """
 
 import sys
@@ -12,12 +24,65 @@ import numpy as np
 from pathlib import Path
 import argparse
 import pandas as pd
+from collections import defaultdict, deque
 from ultralytics import YOLO
 
 import config
 from utils.video_utils import VideoReader, VideoWriter, draw_text_with_background
 from utils.metrics import EngagementMetrics
 from utils.logger import setup_logger
+
+# Optional SAHI + supervision imports (only needed when --sahi flag is used)
+try:
+    from sahi import AutoDetectionModel
+    from sahi.predict import get_sliced_prediction
+    import supervision as sv
+    SAHI_AVAILABLE = True
+except ImportError:
+    SAHI_AVAILABLE = False
+
+
+class EngagementSmoother:
+    """
+    Temporal smoothing for engagement labels.
+    Instead of using per-frame raw predictions, this class accumulates
+    predictions over a sliding window and returns the confidence-weighted
+    majority vote. This prevents label flickering (e.g., engaged → disengaged
+    → engaged across consecutive frames).
+    """
+    
+    def __init__(self, window_size=10):
+        self.window_size = window_size
+        self.history = defaultdict(lambda: deque(maxlen=window_size))
+    
+    def update(self, track_id, engagement_level, confidence):
+        """Record a new observation for a tracked person"""
+        self.history[track_id].append((engagement_level, confidence))
+    
+    def get_smoothed(self, track_id):
+        """
+        Get the smoothed engagement label via confidence-weighted voting.
+        
+        Returns:
+            (engagement_level, avg_confidence) or (None, 0.0) if no history.
+        """
+        if track_id not in self.history or len(self.history[track_id]) == 0:
+            return None, 0.0
+        
+        votes = defaultdict(float)
+        for level, conf in self.history[track_id]:
+            votes[level] += conf  # weight by detection confidence
+        
+        best_level = max(votes, key=votes.get)
+        total_weight = sum(votes.values())
+        avg_conf = votes[best_level] / len(self.history[track_id])
+        return best_level, avg_conf
+    
+    def cleanup_stale(self, active_ids):
+        """Remove history for IDs no longer being tracked"""
+        stale = [tid for tid in self.history if tid not in active_ids]
+        for tid in stale:
+            del self.history[tid]
 
 
 class FullPipeline:
@@ -45,19 +110,35 @@ class FullPipeline:
         'disengaged': 'disengaged'
     }
     
-    def __init__(self, 
+    def __init__(self,
                  main_model='models/roboflow_weights.pt',
-                 tracker_config='botsort.yaml',
-                 conf_threshold=0.3, # Adjust to optimal
+                 tracker_config='custom_botsort.yaml',
+                 conf_threshold=0.2,
                  iou_threshold=0.5,
-                 device=0):
-        """Initialize full pipeline with a single object detection model"""
+                 device=0,
+                 smoothing_window=10,
+                 use_sahi=False,
+                 sahi_slice_size=640,
+                 sahi_overlap=0.2):
+        """Initialize full pipeline with a single object detection model
+
+        Args:
+            main_model: Path to YOLO model weights
+            tracker_config: Tracker config YAML (default: custom_botsort.yaml with tuned params)
+            conf_threshold: Detection confidence threshold (lowered to 0.2 for small objects)
+            iou_threshold: IoU threshold for NMS
+            device: GPU device ID or 'cpu'
+            smoothing_window: Number of frames for temporal engagement smoothing
+            use_sahi: Enable SAHI sliced inference for better small-object detection
+            sahi_slice_size: Pixel size of each SAHI tile (default: 640)
+            sahi_overlap: Overlap ratio between tiles (default: 0.2 = 20%)
+        """
         self.logger = setup_logger(self.__class__.__name__)
-        
+
         # Load main model
         self.logger.info(f"Loading main detector & classifier: {main_model}")
         self.model = YOLO(main_model)
-        
+
         # Determine classes from model
         if hasattr(self.model, 'names'):
             self.model_class_names = self.model.names
@@ -65,26 +146,71 @@ class FullPipeline:
         else:
             self.logger.warning("Could not detect class names from model!")
             self.model_class_names = {0: 'medium'} # fallback
-            
+
+        # Resolve tracker config to absolute path so it works regardless of CWD
+        tracker_path = Path(tracker_config)
+        if not tracker_path.is_absolute() and not tracker_path.exists():
+            local_path = Path(__file__).parent / tracker_config
+            if local_path.exists():
+                tracker_config = str(local_path)
+                self.logger.info(f"Resolved tracker config: {tracker_config}")
+            else:
+                self.logger.warning(
+                    f"Tracker config '{tracker_config}' not found locally or in "
+                    f"{Path(__file__).parent} — Ultralytics will use its own default."
+                )
         self.tracker_config = tracker_config
         self.conf_threshold = conf_threshold
         self.iou_threshold = iou_threshold
         self.device = device
-        
+
+        # Temporal smoothing for stable engagement labels
+        self.smoother = EngagementSmoother(window_size=smoothing_window)
+        self.logger.info(f"Engagement smoother enabled (window={smoothing_window} frames)")
+
         self.metrics = EngagementMetrics()
         self.tracking_data = []
-        
-        self.logger.info("Pipeline initialized successfully (1-Model Architecture)")
+
+        # SAHI setup
+        self.use_sahi = use_sahi
+        if use_sahi:
+            if not SAHI_AVAILABLE:
+                raise ImportError(
+                    "SAHI mode requires extra packages.\n"
+                    "Install: pip install sahi supervision"
+                )
+            device_str = f"cuda:{device}" if isinstance(device, int) else str(device)
+            self.logger.info(f"Initializing SAHI model (slice={sahi_slice_size}, overlap={sahi_overlap})")
+            self.sahi_model = AutoDetectionModel.from_pretrained(
+                model_type="ultralytics",
+                model_path=main_model,
+                confidence_threshold=conf_threshold,
+                device=device_str,
+            )
+            self.sahi_slice_size = sahi_slice_size
+            self.sahi_overlap = sahi_overlap
+            self.sv_tracker = sv.ByteTrack()
+            self.logger.info("SAHI mode enabled (ByteTrack tracker)")
+
+        mode = "SAHI+ByteTrack" if use_sahi else "standard BotSORT"
+        self.logger.info(f"Pipeline initialized successfully (1-Model Architecture v3, {mode})")
     
     def get_normalized_class(self, class_id):
         """Map raw model class to standardized 'engaged/moderately/disengaged'"""
         raw_name = self.model_class_names.get(int(class_id), 'medium')
         return self.CLASS_NORMALIZE.get(raw_name, 'moderately-engaged')
     
-    def process_video(self, video_path, output_path=None, save_csv=True, 
+    def process_video(self, video_path, output_path=None, save_csv=True,
                      show_preview=False, limit_frames=None):
-        """Process video with the single-model pipeline"""
+        """Process video with the single-model pipeline.
+        Routes to SAHI mode automatically if use_sahi=True."""
         self.logger.info(f"Processing: {video_path}")
+
+        if self.use_sahi:
+            return self._process_video_sahi(
+                video_path, output_path=output_path, save_csv=save_csv,
+                show_preview=show_preview, limit_frames=limit_frames
+            )
         
         # Reset
         self.metrics.reset()
@@ -149,12 +275,28 @@ class FullPipeline:
                         bbox = box.xyxy[0].cpu().numpy()
                         conf = float(box.conf[0])
                         class_id = int(box.cls[0])
-                        
+
                         x1, y1, x2, y2 = map(int, bbox)
-                        
+
+                        # Skip detections that are too small to be a real student.
+                        # Objects < 0.3% of frame area are likely furniture/bags/noise.
+                        frame_area = frame.shape[0] * frame.shape[1]
+                        bbox_area = (x2 - x1) * (y2 - y1)
+                        if bbox_area / frame_area < 0.003:
+                            continue
+
                         # Standardize classification label
-                        engagement_level = self.get_normalized_class(class_id)
-                        engagement_score = conf # The detection confidence represents the class confidence
+                        raw_engagement = self.get_normalized_class(class_id)
+                        
+                        # Apply temporal smoothing: accumulate this observation
+                        # then use the smoothed (voted) label for display & logging
+                        self.smoother.update(track_id, raw_engagement, conf)
+                        engagement_level, engagement_score = self.smoother.get_smoothed(track_id)
+                        
+                        # Fallback if smoother returns None
+                        if engagement_level is None:
+                            engagement_level = raw_engagement
+                            engagement_score = conf
                         
                         # Store frame data for metrics
                         frame_scores[track_id] = (engagement_score, engagement_level)
@@ -165,6 +307,7 @@ class FullPipeline:
                             'track_id': track_id,
                             'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
                             'detection_conf': conf,
+                            'raw_engagement': raw_engagement,
                             'engagement_level': engagement_level,
                             'engagement_score': engagement_score
                         })
@@ -216,6 +359,138 @@ class FullPipeline:
         
         return df
     
+    def _sahi_to_sv_detections(self, sahi_result):
+        """Convert SAHI PredictionResult to supervision Detections."""
+        preds = sahi_result.object_prediction_list
+        if not preds:
+            return sv.Detections.empty()
+
+        xyxy = np.array([
+            [p.bbox.minx, p.bbox.miny, p.bbox.maxx, p.bbox.maxy]
+            for p in preds
+        ], dtype=np.float32)
+        confs = np.array([p.score.value for p in preds], dtype=np.float32)
+        cls_ids = np.array([p.category.id for p in preds], dtype=int)
+
+        return sv.Detections(xyxy=xyxy, confidence=confs, class_id=cls_ids)
+
+    def _process_video_sahi(self, video_path, output_path=None, save_csv=True,
+                            show_preview=False, limit_frames=None):
+        """SAHI mode: frame-by-frame loop with sliced inference + ByteTrack."""
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            raise IOError(f"Cannot open video: {video_path}")
+
+        fps = cap.get(cv2.CAP_PROP_FPS) or 15
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.logger.info(f"Video: {width}x{height} @ {fps:.1f}fps, {total} frames")
+
+        writer = None
+        if output_path:
+            writer = VideoWriter(output_path, fps, width, height)
+            self.logger.info(f"Output: {output_path}")
+
+        frame_idx = 0
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                if limit_frames and frame_idx >= limit_frames:
+                    self.logger.info(f"Reached frame limit: {limit_frames}")
+                    break
+
+                if frame_idx % 30 == 0:
+                    self.logger.info(f"SAHI processing frame {frame_idx}/{total}...")
+
+                # --- SAHI sliced detection ---
+                sahi_result = get_sliced_prediction(
+                    frame,
+                    self.sahi_model,
+                    slice_height=self.sahi_slice_size,
+                    slice_width=self.sahi_slice_size,
+                    overlap_height_ratio=self.sahi_overlap,
+                    overlap_width_ratio=self.sahi_overlap,
+                    verbose=False,
+                )
+                detections = self._sahi_to_sv_detections(sahi_result)
+
+                # --- ByteTrack update ---
+                if len(detections) > 0:
+                    tracked = self.sv_tracker.update_with_detections(detections)
+                else:
+                    tracked = sv.Detections.empty()
+
+                # --- Same logic as standard mode ---
+                frame_scores = {}
+                untracked_counter = 99000
+
+                for i in range(len(tracked)):
+                    track_id = int(tracked.tracker_id[i]) if tracked.tracker_id is not None else untracked_counter
+                    if tracked.tracker_id is None:
+                        untracked_counter += 1
+
+                    bbox = tracked.xyxy[i]
+                    conf = float(tracked.confidence[i]) if tracked.confidence is not None else 0.5
+                    class_id = int(tracked.class_id[i]) if tracked.class_id is not None else 0
+
+                    x1, y1, x2, y2 = map(int, bbox)
+                    raw_engagement = self.get_normalized_class(class_id)
+
+                    self.smoother.update(track_id, raw_engagement, conf)
+                    engagement_level, engagement_score = self.smoother.get_smoothed(track_id)
+                    if engagement_level is None:
+                        engagement_level = raw_engagement
+                        engagement_score = conf
+
+                    frame_scores[track_id] = (engagement_score, engagement_level)
+
+                    self.tracking_data.append({
+                        'frame': frame_idx,
+                        'track_id': track_id,
+                        'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
+                        'detection_conf': conf,
+                        'raw_engagement': raw_engagement,
+                        'engagement_level': engagement_level,
+                        'engagement_score': engagement_score,
+                    })
+
+                    self.draw_person(frame, track_id, bbox, engagement_level, engagement_score)
+
+                active_ids = set(frame_scores.keys())
+                self.smoother.cleanup_stale(active_ids)
+                self.metrics.add_frame(frame_scores)
+                self.draw_summary(frame, frame_scores, frame_idx)
+
+                if show_preview:
+                    cv2.imshow('Pipeline Preview (SAHI)', frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+
+                if writer:
+                    writer.write(frame)
+
+                frame_idx += 1
+
+        finally:
+            cap.release()
+            if writer:
+                writer.release()
+            if show_preview:
+                cv2.destroyAllWindows()
+
+        self.logger.info(f"SAHI processing complete: {frame_idx} frames")
+        df = pd.DataFrame(self.tracking_data)
+
+        if save_csv and output_path and len(df) > 0:
+            csv_path = Path(output_path).with_suffix('.csv')
+            df.to_csv(csv_path, index=False)
+            self.logger.info(f"Saved tracking data: {csv_path}")
+
+        return df
+
     def draw_person(self, frame, track_id, bbox, level, score):
         """Draw person bbox and info"""
         x1, y1, x2, y2 = map(int, bbox)
@@ -324,17 +599,27 @@ def main():
     parser.add_argument('--model', type=str, required=True, help='Path to detection/classification model')
     parser.add_argument('--output', type=str, required=True, help='Output video path')
     parser.add_argument('--device', default=0, help='Device (0 for GPU, cpu for CPU)')
-    parser.add_argument('--conf', type=float, default=0.3, help='Detection confidence threshold')
+    parser.add_argument('--conf', type=float, default=0.2, help='Detection confidence threshold (default: 0.2 for small objects)')
     parser.add_argument('--preview', action='store_true', help='Show live preview')
     parser.add_argument('--limit', type=int, default=None, help='Limit frames (testing)')
+    parser.add_argument('--smoothing', type=int, default=10, help='Temporal smoothing window size in frames (default: 10)')
+    parser.add_argument('--tracker', type=str, default='custom_botsort.yaml', help='Tracker config file')
+    parser.add_argument('--sahi', action='store_true', help='Enable SAHI sliced inference (better for small/distant students)')
+    parser.add_argument('--slice-size', type=int, default=640, help='SAHI tile size in pixels (default: 640)')
+    parser.add_argument('--overlap', type=float, default=0.2, help='SAHI tile overlap ratio (default: 0.2)')
     
     args = parser.parse_args()
     
     # Initialize pipeline
     pipeline = FullPipeline(
         main_model=args.model,
+        tracker_config=args.tracker,
         conf_threshold=args.conf,
-        device=args.device
+        device=args.device,
+        smoothing_window=args.smoothing,
+        use_sahi=args.sahi,
+        sahi_slice_size=args.slice_size,
+        sahi_overlap=args.overlap,
     )
     
     # Process video

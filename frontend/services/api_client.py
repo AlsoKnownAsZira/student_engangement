@@ -18,7 +18,7 @@ from fe_config import API_BASE_URL
 class APIClient:
     """Thin wrapper around ``requests`` that adds the auth header."""
 
-    TIMEOUT = 45  # seconds — prevents Streamlit from hanging forever
+    TIMEOUT = 120  # seconds — prevents Streamlit from hanging forever
 
     def __init__(self, token: str | None = None):
         self.base = API_BASE_URL.rstrip("/")

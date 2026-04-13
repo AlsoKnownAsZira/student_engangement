@@ -43,10 +43,10 @@ for dir_path in [OUTPUT_DIR, POC_RESULTS_DIR, ANNOTATIONS_DIR,
 # Detection & Tracking
 DETECTION_MODEL = "yolo11s.pt"  #  yolo11n.pt untuk lebih cepat atau yolo11s.pt untuk lebih akurat
 POSE_MODEL = "yolo11n-pose.pt"  # untuk pose estimation
-TRACKER_CONFIG = "botsort.yaml"  # atau botsort.yaml
+TRACKER_CONFIG = "custom_botsort.yaml"  # Custom tuned tracker for classroom CCTV
 
 # Detection parameters
-CONF_THRESHOLD = 0.3  # confidence threshold untuk detection
+CONF_THRESHOLD = 0.2  # confidence threshold untuk detection (lowered for small objects)
 IOU_THRESHOLD = 0.5   # IoU threshold untuk NMS
 PERSON_CLASS_ID = 0   # class ID untuk 'person' di COCO
 

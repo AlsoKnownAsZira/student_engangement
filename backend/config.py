@@ -23,11 +23,16 @@ class Settings(BaseSettings):
 
     # --- Processing ---
     DEVICE: str = "auto"                # "auto", "0" (GPU), or "cpu"
-    CONF_THRESHOLD: float = 0.3
+    CONF_THRESHOLD: float = 0.2
     IOU_THRESHOLD: float = 0.5
-    TRACKER_CONFIG: str = "botsort.yaml"
+    TRACKER_CONFIG: str = "custom_botsort.yaml"
     MAX_VIDEO_SIZE_MB: int = 200
     ALLOWED_EXTENSIONS: str = ".mp4,.avi,.mov,.mkv"
+
+    # --- SAHI (Slicing Aided Hyper Inference) ---
+    USE_SAHI: bool = False              # Enable sliced inference for small objects
+    SAHI_SLICE_SIZE: int = 640          # Tile size in pixels
+    SAHI_OVERLAP: float = 0.2          # Overlap ratio between tiles
 
     # --- Paths ---
     TEMP_DIR: str = "temp"

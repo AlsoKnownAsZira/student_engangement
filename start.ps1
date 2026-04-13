@@ -28,7 +28,7 @@ Write-Host ""
 
 # ── Pre-flight checks ────────────────────────────────────────────
 $ok = $true
-foreach ($f in @($PYTHON_EXE, ".env", "models\yolo11s.pt", "models\best.pt")) {
+foreach ($f in @($PYTHON_EXE, ".env", "models\local_best.pt")) {
     if (-not (Test-Path $f)) {
         Write-Host "  MISSING: $f" -ForegroundColor Red
         $ok = $false

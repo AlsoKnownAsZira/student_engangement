@@ -58,9 +58,13 @@ class PipelineManager:
             conf_threshold=settings.CONF_THRESHOLD,
             iou_threshold=settings.IOU_THRESHOLD,
             device=settings.resolved_device,
+            use_sahi=settings.USE_SAHI,
+            sahi_slice_size=settings.SAHI_SLICE_SIZE,
+            sahi_overlap=settings.SAHI_OVERLAP,
         )
         elapsed = time.time() - start
-        logger.info(f"Models loaded in {elapsed:.1f}s  (device={settings.resolved_device})")
+        sahi_info = f", SAHI={'on' if settings.USE_SAHI else 'off'}"
+        logger.info(f"Models loaded in {elapsed:.1f}s  (device={settings.resolved_device}{sahi_info})")
 
     def is_ready(self) -> bool:
         return self._pipeline is not None
