@@ -46,7 +46,7 @@ except Exception as e:
     st.error(f"Failed to load history: {e}")
     st.stop()
 
-analyses = history.get("analyses", [])
+analyses = history.get("analyses", [])  
 
 # ── Cek apakah ada yang masih processing ─────────────────────────────────
 has_processing = any(a["status"] == "processing" for a in analyses)
