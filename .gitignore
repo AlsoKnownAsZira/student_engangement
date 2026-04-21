@@ -30,6 +30,7 @@ outputs/**/*.csv
 
 #dataset assets
 dataset_yolo_split/
+dataset_yolo_v5/
 dataset_yolo_split.zip
 
 # ── Large / generated output directories ──
@@ -71,3 +72,4 @@ Thumbs.db
 .agents/
 
 finetune_dataset/
+dataset_yolo_v5/
