@@ -32,7 +32,10 @@ outputs/**/*.csv
 dataset_yolo_split/
 dataset_yolo_v5/
 dataset_yolo_split.zip
-
+crops_v6/
+crops_v6.zip
+crops_v7/
+crops_v7.zip
 # ── Large / generated output directories ──
 outputs/
 temp/
