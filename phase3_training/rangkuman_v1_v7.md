@@ -1,4 +1,4 @@
-# Rangkuman Percobaan Training V1–V7
+# Rangkuman Percobaan Training V1–V9
 
 ## Overview
 
@@ -11,6 +11,8 @@
 | V5 | Detect (2-class) | YOLOv11m | 960px | Remap 742 img → 2cls | mAP@50 76.2% | Merge High+Med=Engaged, breakthrough |
 | V6 | Classify (3-class) | YOLOv11s-cls | 224px | crops_v6 (30k train) | Top-1 Acc 57.7% | Crop per orang, balanced 10k/kelas |
 | V7 | **Classify (2-class)** | YOLOv11s-cls | 224px | crops_v7 (16.7k train) | Top-1 Acc 76.8% | Crop + 2-class, Low di-augment offline |
+| V8 | Classify (2-class) | YOLOv11s-cls | 224px | crops_v8 (16.8k train) | Top-1 Acc **73.0%** | Dataset baru (Low 6130), best epoch 6, turun dari V7 |
+| V9 | Classify (2-class) | YOLOv11s-cls | 320px | crops_v9 (val balanced 50:50) | Top-1 Acc **70.6%** | AdamW+imgsz=320, val acc naik (0.836) tapi test turun, NotEngaged bias |
 
 ---
 
@@ -18,12 +20,12 @@
 
 > V1–V5: mAP@50 (detection). V6–V7: F1-score (classification). Tidak apple-to-apple tapi menunjukkan tren per kelas.
 
-| Kelas | V1 | V2 | V3 | V4 | V5 | V6 | V7 |
-|-------|----|----|----|----|----|----|-----|
-| High / Engaged    | ~79.4% | 72.0% | ~72% | 66.9% | mAP **85.3%** | F1 0.569 | F1 **0.802** |
-| Low / NotEngaged  | ~57.2% | 62.1% | ~60% | 58.5% | mAP 67.0% | F1 0.698 | F1 **0.721** |
-| Medium            | ~36.6% | 41.4% | ~38% | 38.9% | *(merged)* | F1 0.335 | *(merged)* |
-| **Overall**       | **~57.8%** | **58.5%** | **~58%** | **54.8%** | **mAP 76.2%** | **Acc 57.7%** | **Acc 76.8%** |
+| Kelas | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 | V9 |
+|-------|----|----|----|----|----|----|-----|----|----|
+| High / Engaged    | ~79.4% | 72.0% | ~72% | 66.9% | mAP **85.3%** | F1 0.569 | F1 **0.802** | F1 0.752 | F1 0.723 |
+| Low / NotEngaged  | ~57.2% | 62.1% | ~60% | 58.5% | mAP 67.0% | F1 0.698 | F1 0.721 | F1 0.703 | F1 0.687 |
+| Medium            | ~36.6% | 41.4% | ~38% | 38.9% | *(merged)* | F1 0.335 | *(merged)* | *(merged)* | *(merged)* |
+| **Overall**       | **~57.8%** | **58.5%** | **~58%** | **54.8%** | **mAP 76.2%** | **Acc 57.7%** | **Acc 76.8%** | **Acc 73.0%** | **Acc 70.6%** |
 
 ---
 
@@ -188,6 +190,8 @@ V7: Crop per orang + 2-class (gabungkan kekuatan V5 dan V6)
 | Merge 3-class → 2-class (detection) | V5 | **+18.4% mAP → 76.2%** ✅ |
 | Crop per orang + classify + balanced 10k/kelas | V6 | Top-1 Acc 57.7%, Medium tetap buruk |
 | Crop per orang + 2-class + augment Low saja | V7 | Top-1 Acc 76.8%, setara V5 ✅ |
+| Dataset baru (Low lebih banyak, aug ringan ~37%) | V8 | Top-1 Acc 73.0%, turun dari V7 ❌ |
+| Balanced val 50:50 + AdamW + imgsz=320 | V9 | Top-1 Acc 70.6%, turun dari V7 dan V8 ❌ |
 
 ---
 
@@ -254,11 +258,112 @@ Dua tugas dipisah:
 
 ---
 
-## Kesimpulan Sementara
+---
 
-1. **Ceiling ~57% untuk 3-class** berlaku di semua pendekatan (detection maupun classification) — keterbatasan inheren ambiguitas visual kelas Medium.
+### V8 — YOLO Classify, Crop per Orang, 2-Class, Dataset Baru
+- **Model:** YOLOv11s-cls
+- **Resolusi:** 224px, Batch: 64, Patience: 50, dropout=0.2
+- **Dataset:** crops_v8 — crop langsung dari dataset_smp (Roboflow v13)
+  - Train: **8398 : 8398**, perfectly balanced (Low 6130 original → augment offline +2268, ~37% synthetic)
+  - Valid: 1805 : 1019 | Test: 2628 : 1610
+- **Hipotesis:** Dataset Low lebih banyak (6130 vs 3872) dengan augmentasi lebih ringan (~37% vs ~115%) akan meningkatkan generalisasi NotEngaged.
+- **Hasil:**
+
+  | Metric | Nilai |
+  |--------|-------|
+  | Top-1 Accuracy (Val best) | 0.814 (epoch 6) |
+  | Top-1 Accuracy (Test) | **0.730** |
+  | Engaged — Precision / Recall / F1 | 0.872 / 0.661 / **0.752** |
+  | NotEngaged — Precision / Recall / F1 | 0.603 / 0.841 / **0.703** |
+  | Macro avg F1 | **0.727** |
+  | Balanced Accuracy | 0.751 |
+  | Cohen Kappa | 0.467 |
+  | MCC | 0.489 |
+  | ROC-AUC | **0.876** |
+
+  Confusion matrix:
+  ```
+                   Engaged  NotEngaged
+  Engaged             1738         890   ← 33.9% salah ke NotEngaged
+  NotEngaged           256        1354   ← 15.9% salah ke Engaged
+  ```
+
+  Early stopping: best epoch **6**, training berhenti di epoch 56 (50 epoch tanpa improvement).
+
+- **Analisis — Mengapa V8 Lebih Buruk dari V7?**
+
+  | Aspek | V7 | V8 |
+  |-------|----|----|
+  | Test Accuracy | **0.768** | 0.730 |
+  | Engaged Recall | **0.755** | 0.661 ↓ |
+  | NotEngaged Recall | 0.789 | **0.841** ↑ |
+  | Best epoch | ~pertengahan | 6 (sangat awal) |
+  | Val–Test gap | 3.9% | **8.4%** ← besar |
+
+  Tiga temuan kunci:
+  1. **Model konvergen terlalu awal (epoch 6)** — optimizer MuSGD dengan lr=0.01 terlalu agresif, model overshoot dan tidak bisa recover. Val accuracy mentok di ~0.79–0.81 setelah itu.
+  2. **Bias ke NotEngaged** — lebih banyak Low original di train menyebabkan model lebih "percaya diri" memprediksi NotEngaged. Recall NotEngaged naik (0.789→0.841) tapi Engaged recall turun drastis (0.755→0.661).
+  3. **Val–Test gap 8.4%** — lebih besar dari V7 (3.9%), menandakan best.pt epoch 6 kurang generalize ke test set.
+
+  ROC-AUC 0.876 sebenarnya baik (model punya kemampuan diskriminatif yang cukup), tapi threshold default 0.5 tidak optimal karena bias NotEngaged.
+
+---
+
+### V9 — YOLO Classify, Balanced Val (50:50), AdamW, imgsz=320
+- **Model:** YOLOv11s-cls
+- **Resolusi:** 320px, Batch: 128 (DDP T4×2), Patience: 50, dropout=0.2
+- **Dataset:** crops_v9 — crop dari dataset_smp_balanced
+  - Kelas9_2mar_1012 dipindah train→valid sehingga val seimbang 50:50
+  - Train: **8398 : 8398**, perfectly balanced (Low 5336 original + 3062 augmented, ~57% synthetic)
+  - Valid: 1805 : 1813 (50:50) | Test: 2628 : 1610 (62:38, tidak berubah)
+- **Hipotesis:** Balanced val + AdamW lr=0.0005 + imgsz=320 akan memperbaiki bias val, konvergensi stabil, dan detail fitur lebih baik.
+- **Hasil:**
+
+  | Metric | Nilai |
+  |--------|-------|
+  | Top-1 Accuracy (Val best) | 0.836 (epoch 5) |
+  | Top-1 Accuracy (Test) | **0.706** |
+  | Engaged — Precision / Recall / F1 | 0.870 / 0.618 / **0.723** |
+  | NotEngaged — Precision / Recall / F1 | 0.577 / 0.849 / **0.687** |
+  | Macro avg F1 | **0.705** |
+  | Balanced Accuracy | 0.734 |
+  | Cohen Kappa | 0.428 |
+  | MCC | 0.457 |
+  | ROC-AUC | 0.859 |
+
+  Confusion matrix:
+  ```
+                   Engaged  NotEngaged
+  Engaged             1624        1004   ← 38.2% salah ke NotEngaged
+  NotEngaged           243        1367   ← 15.1% salah ke Engaged
+  ```
+
+  Early stopping: best epoch **5**, training berhenti di epoch 55. Val-test gap: **13.0%** (membesar dari 8.4% di V8).
+
+- **Analisis — Mengapa V9 Lebih Buruk dari V7 dan V8?**
+
+  | Aspek | V7 | V8 | V9 |
+  |-------|----|----|-----|
+  | Test Accuracy | **0.768** | 0.730 | 0.706 ↓ |
+  | Engaged Recall | **0.755** | 0.661 | 0.618 ↓ |
+  | NotEngaged Recall | 0.789 | 0.841 | **0.849** |
+  | Best epoch | ~pertengahan | 6 | 5 |
+  | Val–Test gap | 3.9% | 8.4% | **13.0%** ↑ |
+
+  Tiga temuan kunci:
+  1. **Balanced val = false improvement** — val acc naik 0.814→0.836, tapi test acc justru turun ke 0.706. Val 50:50 menyembunyikan NotEngaged bias; test 62:38 (Engaged-heavy) mengeksposnya.
+  2. **NotEngaged bias semakin parah** — Engaged recall turun 0.661 (V8) → 0.618 (V9). Kombinasi 57% synthetic NotEngaged di train + val session Kelas9_2mar_1012 (sesi Low murni) membuat model terlalu agresif memprediksi NotEngaged.
+  3. **Val-test gap terus membesar** — 3.9% (V7) → 8.4% (V8) → 13.0% (V9). Val set semakin tidak merepresentasikan distribusi test dunia nyata (lebih banyak Engaged).
+
+---
+
+## Kesimpulan
+
+1. **Ceiling ~57% untuk 3-class** berlaku di semua pendekatan — keterbatasan inheren ambiguitas visual kelas Medium.
 2. **Merge ke 2-class terbukti satu-satunya breakthrough** — konsisten di V5 (mAP 76.2%) dan V7 (Acc 76.8%).
-3. **V7 lebih baik dari V5 di NotEngaged** — F1 0.721 vs mAP 0.670, hasil dari dataset balanced. Engaged sedikit turun (F1 0.802 vs mAP 0.853) tapi metrik berbeda sehingga tidak apple-to-apple.
-4. **Keputusan final model:**
-   - **V7 (crop + classify)** — jika pipeline 2-model (detect → classify) dapat diterima, NotEngaged lebih baik dan dataset balanced
-   - **V5 (detect langsung)** — jika ingin pipeline sederhana (1 model), lebih mudah dijelaskan di skripsi, performa overall setara
+3. **V7 masih terbaik di semua metrik test** — V8 dan V9 yang mencoba berbagai perbaikan justru turun berturut-turut (76.8% → 73.0% → 70.6%).
+4. **Pola kegagalan V8–V9:** NotEngaged recall naik (0.789→0.841→0.849) tapi Engaged recall turun terus (0.755→0.661→0.618). Val-test gap membesar setiap versi.
+5. **Root cause utama:** Augmentasi offline agresif pada kelas NotEngaged menciptakan distribusi artificial yang tidak merepresentasikan data test. Semakin banyak synthetic NotEngaged, semakin bias model.
+6. **Keputusan final model:**
+   - **V7 (crop + classify)** — performa terbaik (76.8%), dataset balanced tanpa over-augmentasi, Engaged F1 terbaik (0.802)
+   - **V5 (detect langsung)** — pipeline sederhana (1 model), performa overall setara V7, layak sebagai alternatif
