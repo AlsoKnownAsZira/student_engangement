@@ -21,6 +21,7 @@ from components.auth import (
     show_user_sidebar,
 )
 from components.styles import inject_global_css, hero_section, feature_card, init_theme
+from i18n import t
 
 st.set_page_config(
     page_title=PAGE_TITLE,
@@ -40,7 +41,7 @@ show_user_sidebar()
 if is_logged_in():
     hero_section(
         title=PAGE_TITLE,
-        subtitle="Analyze student engagement from classroom videos using AI-powered detection, tracking, and classification.",
+        subtitle=t("home_subtitle"),
         emoji=PAGE_ICON,
     )
 
@@ -50,24 +51,24 @@ if is_logged_in():
     with col1:
         feature_card(
             emoji="📤",
-            title="Upload Video",
-            description="Upload a classroom video and let AI analyze each student's engagement level.",
+            title=t("feat_upload_title"),
+            description=t("feat_upload_desc"),
             accent="#38bdf8",
         )
 
     with col2:
         feature_card(
             emoji="📊",
-            title="View Results",
-            description="See detailed per-student engagement reports with interactive charts and annotated video.",
+            title=t("feat_results_title"),
+            description=t("feat_results_desc"),
             accent="#34d399",
         )
 
     with col3:
         feature_card(
             emoji="📋",
-            title="History",
-            description="Browse all your past analyses, compare results, and download reports.",
+            title=t("feat_history_title"),
+            description=t("feat_history_desc"),
             accent="#a78bfa",
         )
 
@@ -79,10 +80,10 @@ if is_logged_in():
     try:
         health = APIClient().health()
         if health.get("models_loaded"):
-            st.success(f"✅ Backend online — models loaded (device: {health.get('device', 'N/A')})")
+            st.success(t("backend_ok", health.get("device", "N/A")))
         else:
-            st.warning("⏳ Backend is starting up — models are still loading…")
+            st.warning(t("backend_loading"))
     except Exception:
-        st.error("❌ Cannot reach the backend API. Make sure FastAPI is running on port 8000.")
+        st.error(t("backend_error"))
 else:
     show_auth_page()

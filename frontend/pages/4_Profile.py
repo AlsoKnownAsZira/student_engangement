@@ -13,6 +13,7 @@ import streamlit as st
 from components.auth import require_auth, show_user_sidebar, logout
 from components.styles import inject_global_css, hero_section, init_theme, _palette
 from fe_config import PAGE_TITLE, PAGE_ICON
+from i18n import t
 
 st.set_page_config(page_title=f"Profile | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
@@ -25,7 +26,7 @@ email = st.session_state.get("user_email", "—")
 user_id = st.session_state.get("user_id", "—")
 initial = email[0].upper() if email and email != "—" else "U"
 
-hero_section(title="Your Profile", subtitle="Account information and settings", emoji="👤")
+hero_section(title=t("profile_title"), subtitle=t("profile_subtitle"), emoji="👤")
 
 # ── Profile card ──────────────────────────────────────────────────────────
 
@@ -58,12 +59,12 @@ with center:
         f'<div style="{name_style}">{email}</div>'
         f'<div style="{id_style}">ID: {uid_short}…</div>'
         f'<div style="{info_style}">'
-        f'<div style="{row_style}"><span style="{label_s}">Email</span><span style="{val_s}">{email}</span></div>'
-        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">User ID</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
+        f'<div style="{row_style}"><span style="{label_s}">{t("profile_label_email")}</span><span style="{val_s}">{email}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">{t("profile_label_uid")}</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
 
     st.markdown('<div style="height:1.5rem;"></div>', unsafe_allow_html=True)
-    if st.button("🚪 Logout", type="primary", use_container_width=True):
+    if st.button(t("logout"), type="primary", use_container_width=True):
         logout()

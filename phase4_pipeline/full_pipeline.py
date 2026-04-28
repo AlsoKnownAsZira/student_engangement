@@ -100,7 +100,7 @@ class TwoStagePipeline:
         smoothing_window: int = 10,
         frame_stride: int = 5,
         classifier_imgsz: int = 224,
-        min_box_area_frac: float = 0.003,
+        min_box_area_frac: float = 0.001,
     ):
         self.logger = setup_logger(self.__class__.__name__)
 
@@ -325,7 +325,7 @@ class TwoStagePipeline:
                         'engagement_score': round(smoothed_conf, 4),
                     })
 
-                    self._draw_person(frame, tid, v['bbox'], smoothed_label, smoothed_conf)
+                    self._draw_person(frame, tid, v['bbox'], smoothed_label, smoothed_conf, v['det_conf'])
 
                 # Cleanup smoother for IDs gone for too long
                 self.smoother.cleanup_stale(set(frame_scores.keys()))
@@ -367,14 +367,14 @@ class TwoStagePipeline:
     # Drawing
     # ═══════════════════════════════════════════════════════════════════════
 
-    def _draw_person(self, frame, track_id, bbox, level, score):
+    def _draw_person(self, frame, track_id, bbox, level, score, det_conf: float = 1.0):
         x1, y1, x2, y2 = map(int, bbox)
         color = self.COLORS.get(level, (255, 255, 255))
 
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
 
         label = f"ID:{track_id} | {level.upper()}"
-        label2 = f"Conf: {score:.2f}"
+        label2 = f"Cls:{score:.2f}  Det:{det_conf:.2f}"
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.6
