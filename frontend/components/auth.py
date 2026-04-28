@@ -13,15 +13,30 @@ if _FRONTEND_DIR not in sys.path:
 import requests
 import streamlit as st
 from services.api_client import APIClient
+from streamlit_cookies_controller import CookieController
+
+# Initialize cookie controller to enable persistent sessions
+cookie_ctrl = CookieController()
 
 
 def init_session_state():
+    # Attempt to read from cookies
+    acc_tok = cookie_ctrl.get("access_token")
+    ref_tok = cookie_ctrl.get("refresh_token")
+    u_id = cookie_ctrl.get("user_id")
+    u_email = cookie_ctrl.get("user_email")
+
     defaults = {
-        "access_token": None, "refresh_token": None,
-        "user_id": None, "user_email": None,
+        "access_token": acc_tok, 
+        "refresh_token": ref_tok,
+        "user_id": u_id, 
+        "user_email": u_email,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
+            st.session_state[k] = v
+        elif st.session_state[k] is None and v is not None:
+            # Sync cookie to session if session was cleared
             st.session_state[k] = v
 
 
@@ -36,6 +51,7 @@ def get_api_client() -> APIClient:
 def logout():
     for k in ["access_token", "refresh_token", "user_id", "user_email"]:
         st.session_state[k] = None
+        cookie_ctrl.remove(k)
     st.rerun()
 
 
@@ -173,3 +189,9 @@ def _set_session(data: dict):
     st.session_state["refresh_token"] = data["refresh_token"]
     st.session_state["user_id"] = data["user_id"]
     st.session_state["user_email"] = data["email"]
+
+    # Persist to cookies
+    cookie_ctrl.set("access_token", data["access_token"])
+    cookie_ctrl.set("refresh_token", data["refresh_token"])
+    cookie_ctrl.set("user_id", data["user_id"])
+    cookie_ctrl.set("user_email", data["email"])
