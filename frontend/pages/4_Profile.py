@@ -33,22 +33,21 @@ _, center, _ = st.columns([1, 2, 1])
 
 with center:
     card_style = (
-        f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:20px;"
-        f"padding:2.5rem;text-align:center;box-shadow:0 8px 32px {p['shadow']};"
-        f"backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);"
+        "background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.15);border-radius:20px;"
+        "padding:2.5rem;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.05);"
     )
     avatar_style = (
-        f"width:88px;height:88px;background:linear-gradient(135deg,{p['accent']},{p['accent2']});"
-        f"border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
-        f"font-size:2.2rem;font-weight:700;color:#0f172a !important;margin-bottom:1.2rem;"
-        f"box-shadow:0 8px 24px rgba(56,189,248,0.3),0 0 40px rgba(56,189,248,0.1);"
+        "width:88px;height:88px;background:var(--primary-color);"
+        "border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
+        "font-size:2.2rem;font-weight:700;color:white;margin-bottom:1.2rem;"
+        "box-shadow:0 4px 12px rgba(0,0,0,0.1);"
     )
-    name_style = f"color:{p['text_primary']} !important;font-size:1.25rem;font-weight:700;margin-bottom:0.3rem;font-family:Outfit,sans-serif;letter-spacing:-0.01em;"
-    id_style = f"color:{p['text_muted']} !important;font-size:0.8rem;font-family:monospace;margin-bottom:1.8rem;"
-    info_style = f"background:{p['bg_card_solid']};border-radius:14px;padding:1.2rem;border:1px solid {p['border']};"
+    name_style = "color:var(--text-color);font-size:1.25rem;font-weight:700;margin-bottom:0.3rem;font-family:Inter,sans-serif;letter-spacing:-0.01em;"
+    id_style = "color:var(--text-color);opacity:0.7;font-size:0.8rem;font-family:monospace;margin-bottom:1.8rem;"
+    info_style = "background:var(--background-color);border-radius:14px;padding:1.2rem;border:1px solid rgba(128,128,128,0.15);"
     row_style = "display:flex;justify-content:space-between;margin-bottom:0.6rem;"
-    label_s = f"color:{p['text_secondary']} !important;font-size:0.88rem;"
-    val_s = f"color:{p['text_primary']} !important;font-size:0.88rem;font-weight:500;"
+    label_s = "color:var(--text-color);opacity:0.8;font-size:0.88rem;"
+    val_s = "color:var(--text-color);font-size:0.88rem;font-weight:500;"
 
     uid_short = user_id[:8] if user_id != "—" else "—"
     uid_med = user_id[:16] if user_id != "—" else "—"

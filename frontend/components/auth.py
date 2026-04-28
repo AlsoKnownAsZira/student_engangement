@@ -62,9 +62,9 @@ def show_auth_page():
     # Centered hero
     st.markdown(
         '<div style="text-align:center;padding:2.5rem 0 1.5rem 0;">'
-        '<div style="font-size:3.5rem;margin-bottom:0.5rem;filter:drop-shadow(0 0 16px rgba(56,189,248,0.4));">🎓</div>'
-        '<h1 style="color:#67e8f9;font-size:2.4rem;font-weight:800;margin:0;font-family:Outfit,Inter,sans-serif;letter-spacing:-0.02em;text-shadow:0 0 30px rgba(56,189,248,0.3);">Classroom Engagement Analyzer</h1>'
-        f'<p style="color:#94a3b8;font-size:1.05rem;margin-top:0.6rem;font-family:Inter,sans-serif;">AI-powered student engagement analysis from classroom videos</p>'
+        '<div style="font-size:3.5rem;margin-bottom:0.5rem;">🎓</div>'
+        '<h1 style="font-size:2.4rem;font-weight:800;margin:0;font-family:Inter,sans-serif;letter-spacing:-0.02em;color:var(--text-color);">Classroom Engagement Analyzer</h1>'
+        f'<p style="font-size:1.05rem;margin-top:0.6rem;font-family:Inter,sans-serif;color:var(--text-color);opacity:0.8;">AI-powered student engagement analysis from classroom videos</p>'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -78,7 +78,7 @@ def show_auth_page():
 
         with tab_login:
             with st.form("login_form"):
-                st.markdown('<p style="color:#94a3b8;margin-bottom:0.5rem;">Welcome back! Sign in to your account.</p>', unsafe_allow_html=True)
+                st.markdown('<p style="font-family:Inter,sans-serif;color:var(--text-color);opacity:0.8;margin-bottom:0.5rem;">Welcome back! Sign in to your account.</p>', unsafe_allow_html=True)
                 email = st.text_input("Email", placeholder="you@example.com")
                 password = st.text_input("Password", type="password", placeholder="Your password")
                 submitted = st.form_submit_button("Login", use_container_width=True, type="primary")
@@ -102,7 +102,7 @@ def show_auth_page():
 
         with tab_signup:
             with st.form("signup_form"):
-                st.markdown('<p style="color:#94a3b8;margin-bottom:0.5rem;">Create a new account to get started.</p>', unsafe_allow_html=True)
+                st.markdown('<p style="font-family:Inter,sans-serif;color:var(--text-color);opacity:0.8;margin-bottom:0.5rem;">Create a new account to get started.</p>', unsafe_allow_html=True)
                 full_name = st.text_input("Full Name (optional)", placeholder="John Doe")
                 email_s = st.text_input("Email", key="signup_email", placeholder="you@example.com")
                 password_s = st.text_input("Password", type="password", key="signup_pw", placeholder="Min. 6 characters")
@@ -146,14 +146,14 @@ def show_user_sidebar():
         email = st.session_state.get("user_email", "User")
         initial = email[0].upper() if email else "U"
 
-        card_s = f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:16px;padding:1.2rem;margin-bottom:1rem;text-align:center;backdrop-filter:blur(12px);"
+        card_s = "background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.15);border-radius:12px;padding:1.2rem;margin-bottom:1rem;text-align:center;box-shadow:0 2px 4px rgba(0,0,0,0.05);"
         avatar_s = (
-            f"width:48px;height:48px;background:linear-gradient(135deg,{p['accent']},{p['accent2']});"
-            f"border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
-            f"font-size:1.3rem;font-weight:700;color:#0f172a;margin-bottom:0.5rem;"
-            f"box-shadow:0 4px 12px rgba(56,189,248,0.25);"
+            "width:48px;height:48px;background:var(--primary-color);"
+            "border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
+            "font-size:1.3rem;font-weight:700;color:white;margin-bottom:0.5rem;"
+            "box-shadow:0 2px 4px rgba(0,0,0,0.1);"
         )
-        name_s = f"color:{p['text_primary']};font-weight:600;font-size:0.9rem;word-break:break-all;font-family:Inter,sans-serif;"
+        name_s = "color:var(--text-color);font-weight:600;font-size:0.9rem;word-break:break-all;font-family:Inter,sans-serif;"
 
         st.sidebar.markdown(
             f'<div style="{card_s}">'
