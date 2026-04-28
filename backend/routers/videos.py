@@ -5,7 +5,6 @@ Videos router — upload a video and kick off background processing.
 from __future__ import annotations
 import io
 import logging
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,7 +17,6 @@ from fastapi import (
     UploadFile,
     status,
 )
-import pandas as pd
 
 from backend.config import get_settings
 from backend.dependencies import get_current_user
@@ -186,6 +184,8 @@ async def _process_video_task(
             avg_engagement_score=class_summary["avg_engagement_score"],
             engagement_distribution=class_summary["engagement_distribution"],
             processing_time_seconds=round(elapsed, 2),
+            classify_threshold=settings.CLASSIFY_THRESHOLD,
+            frame_stride=settings.FRAME_STRIDE,
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
 

@@ -35,12 +35,11 @@ async def get_result(analysis_id: str, user: dict = Depends(get_current_user)):
     student_rows = supabase_service.get_student_results(analysis_id)
     students = [StudentResult(**s) for s in student_rows]
 
-    # Engagement distribution
+    # Engagement distribution (2-class V10)
     dist_raw = row.get("engagement_distribution") or {}
     dist = EngagementDistribution(
         engaged=dist_raw.get("engaged", 0),
-        moderately_engaged=dist_raw.get("moderately_engaged", 0),
-        disengaged=dist_raw.get("disengaged", 0),
+        not_engaged=dist_raw.get("not_engaged", dist_raw.get("not-engaged", 0)),
     )
 
     class_summary = ClassSummary(
@@ -130,8 +129,7 @@ async def list_history(user: dict = Depends(get_current_user)):
                 avg_engagement_score=r.get("avg_engagement_score"),
                 engagement_distribution=EngagementDistribution(
                     engaged=dist_raw.get("engaged", 0),
-                    moderately_engaged=dist_raw.get("moderately_engaged", 0),
-                    disengaged=dist_raw.get("disengaged", 0),
+                    not_engaged=dist_raw.get("not_engaged", dist_raw.get("not-engaged", 0)),
                 ) if dist_raw else None,
             )
         )

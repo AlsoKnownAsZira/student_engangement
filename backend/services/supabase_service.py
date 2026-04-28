@@ -4,10 +4,7 @@ Supabase service — handles Storage (video upload/download) and Database (analy
 
 from __future__ import annotations
 import uuid
-import json
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
 
 from supabase import create_client, Client
 
@@ -185,7 +182,7 @@ def delete_analysis(analysis_id: str, user_id: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def insert_student_results(analysis_id: str, students: list[dict]) -> None:
-    """Bulk-insert per-student majority-vote results."""
+    """Bulk-insert per-student majority-vote results (2-class V10 schema)."""
     client = _get_client()
     rows = []
     for s in students:
@@ -195,8 +192,7 @@ def insert_student_results(analysis_id: str, students: list[dict]) -> None:
             "track_id": s["track_id"],
             "final_engagement": s["final_engagement"],
             "engaged_votes": s["engaged_votes"],
-            "moderate_votes": s["moderate_votes"],
-            "disengaged_votes": s["disengaged_votes"],
+            "not_engaged_votes": s["not_engaged_votes"],
             "total_frames": s["total_frames"],
             "avg_confidence": round(s["avg_confidence"], 4),
             "vote_percentage": round(s["vote_percentage"], 2),

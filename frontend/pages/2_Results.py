@@ -103,8 +103,7 @@ with col_pie:
 with col_bars:
     for level, emoji_icon, pct_key, color in [
         ("engaged", ENGAGEMENT_EMOJI["engaged"], "engaged_pct", ENGAGEMENT_COLORS["engaged"]),
-        ("moderately-engaged", ENGAGEMENT_EMOJI["moderately-engaged"], "moderate_pct", ENGAGEMENT_COLORS["moderately-engaged"]),
-        ("disengaged", ENGAGEMENT_EMOJI["disengaged"], "disengaged_pct", ENGAGEMENT_COLORS["disengaged"]),
+        ("not-engaged", ENGAGEMENT_EMOJI["not-engaged"], "not_engaged_pct", ENGAGEMENT_COLORS["not-engaged"]),
     ]:
         pct_val = metrics[pct_key]
         bar_bg = p['bg_secondary']
@@ -154,8 +153,7 @@ with tab_table:
             "track_id": "Student ID",
             "final_engagement": "Engagement Level",
             "engaged_votes": "Engaged Frames",
-            "moderate_votes": "Moderate Frames",
-            "disengaged_votes": "Disengaged Frames",
+            "not_engaged_votes": "Not Engaged Frames",
             "total_frames": "Total Frames",
             "avg_confidence": "Avg Confidence",
             "vote_percentage": "Majority Vote %",

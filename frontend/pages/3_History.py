@@ -116,18 +116,16 @@ for item in analyses:
         except Exception:
             pass
 
-    # Build distribution dots HTML
+    # Build distribution dots HTML (2-class V10)
     dist_html = ""
     if dist and status == "completed":
         eng = dist.get("engaged", 0) * 100
-        mod = dist.get("moderately_engaged", dist.get("moderately-engaged", 0)) * 100
-        dis = dist.get("disengaged", 0) * 100
+        ne = dist.get("not_engaged", dist.get("not-engaged", 0)) * 100
         dot_style = "width:10px;height:10px;border-radius:50%;"
         dist_html = (
             f'<div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">'
             f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Engaged <b>{eng:.0f}%</b></span></div>'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["moderately-engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Moderate <b>{mod:.0f}%</b></span></div>'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["disengaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Disengaged <b>{dis:.0f}%</b></span></div>'
+            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["not-engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Not Engaged <b>{ne:.0f}%</b></span></div>'
             f'</div>'
         )
 

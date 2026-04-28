@@ -1,9 +1,10 @@
 """
 Pydantic schemas for request / response models.
+
+V10 schema: 2-class engagement (engaged / not-engaged).
 """
 
 from __future__ import annotations
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
@@ -14,8 +15,7 @@ import uuid
 
 class EngagementLevel(str, Enum):
     ENGAGED = "engaged"
-    MODERATELY_ENGAGED = "moderately-engaged"
-    DISENGAGED = "disengaged"
+    NOT_ENGAGED = "not-engaged"
 
 
 class AnalysisStatus(str, Enum):
@@ -69,8 +69,7 @@ class StudentResult(BaseModel):
     track_id: int
     final_engagement: EngagementLevel
     engaged_votes: int = 0
-    moderate_votes: int = 0
-    disengaged_votes: int = 0
+    not_engaged_votes: int = 0
     total_frames: int = 0
     avg_confidence: float = 0.0
     vote_percentage: float = 0.0
@@ -78,8 +77,7 @@ class StudentResult(BaseModel):
 
 class EngagementDistribution(BaseModel):
     engaged: float = 0.0
-    moderately_engaged: float = 0.0
-    disengaged: float = 0.0
+    not_engaged: float = 0.0
 
 
 class ClassSummary(BaseModel):
