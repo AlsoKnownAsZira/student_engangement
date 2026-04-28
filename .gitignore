@@ -30,8 +30,20 @@ outputs/**/*.csv
 
 #dataset assets
 dataset_yolo_split/
+dataset_yolo_v5/
 dataset_yolo_split.zip
-
+crops_v6/
+crops_v6.zip
+crops_v7/
+crops_v7.zip
+crops_v8/
+crops_v8.zip
+crops_v9/
+crops_v9.zip
+crops_v10/
+crops_v10.zip
+dataset_smp/
+dataset_smp_balanced/
 # ── Large / generated output directories ──
 outputs/
 temp/
@@ -71,3 +83,4 @@ Thumbs.db
 .agents/
 
 finetune_dataset/
+dataset_yolo_v5/
