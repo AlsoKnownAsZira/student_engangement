@@ -80,7 +80,13 @@ if is_logged_in():
     try:
         health = APIClient().health()
         if health.get("models_loaded"):
-            st.success(t("backend_ok", health.get("device", "N/A")))
+            raw_device = health.get("device", "N/A")
+            device_str = str(raw_device).strip().lower()
+            if device_str in ("cpu", "n/a", ""):
+                device_label = "CPU" if device_str == "cpu" else "N/A"
+            else:
+                device_label = f"GPU (cuda:{device_str.replace('cuda:', '')})"
+            st.success(t("backend_ok", device_label))
         else:
             st.warning(t("backend_loading"))
     except Exception:
