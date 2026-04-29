@@ -167,17 +167,26 @@ async def _process_video_task(
         storage_video_path = f"{user_id}/{uid}/output.mp4"
         storage_csv_path = f"{user_id}/{uid}/tracking_data.csv"
 
-        supabase_service.upload_file("output-videos", storage_video_path, h264_video_path)
-        supabase_service.upload_file(
-            "output-videos", storage_csv_path, csv_temp, content_type="text/csv"
-        )
+        video_uploaded = False
+        try:
+            supabase_service.upload_file("output-videos", storage_video_path, h264_video_path)
+            video_uploaded = True
+        except Exception as e:
+            logger.warning(f"Output video upload failed (non-fatal, file too large?): {e}")
+
+        try:
+            supabase_service.upload_file(
+                "output-videos", storage_csv_path, csv_temp, content_type="text/csv"
+            )
+        except Exception as e:
+            logger.warning(f"CSV upload failed (non-fatal): {e}")
 
         # 5. Persist to DB
         class_summary = report["class_summary"]
         supabase_service.update_analysis(
             analysis_id,
             status="completed",
-            output_video_path=storage_video_path,
+            output_video_path=storage_video_path if video_uploaded else None,
             csv_path=storage_csv_path,
             total_frames=class_summary["total_frames"],
             total_students=class_summary["total_students"],

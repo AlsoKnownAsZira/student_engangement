@@ -147,7 +147,8 @@ class PipelineManager:
             "-i", str(src),
             "-vcodec", "libx264",
             "-preset", "fast",
-            "-crf", "23",
+            "-crf", "28",
+            "-vf", "scale='min(1280,iw)':-2",  # cap width to stay under Supabase 50MB storage limit
             "-movflags", "+faststart",
             "-an",                  # drop audio (classroom video)
             str(dst),
