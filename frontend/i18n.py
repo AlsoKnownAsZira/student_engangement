@@ -156,6 +156,9 @@ _STRINGS: dict[str, dict[str, str]] = {
         "profile_subtitle": "Informasi akun dan pengaturan",
         "profile_label_email": "Email",
         "profile_label_uid": "User ID",
+        "profile_stat_status": "Status Akun",
+        "profile_stat_videos": "Total Video Dianalisis",
+        "profile_stat_role_researcher": "Peneliti",
 
         # Engagement labels (used in table & cards)
         "label_engaged": "Terlibat",
@@ -304,6 +307,9 @@ _STRINGS: dict[str, dict[str, str]] = {
         "profile_subtitle": "Account information and settings",
         "profile_label_email": "Email",
         "profile_label_uid": "User ID",
+        "profile_stat_status": "Account Status",
+        "profile_stat_videos": "Total Videos Analyzed",
+        "profile_stat_role_researcher": "Researcher",
 
         # Engagement labels
         "label_engaged": "Engaged",

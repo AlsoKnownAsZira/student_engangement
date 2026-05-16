@@ -28,6 +28,16 @@ initial = email[0].upper() if email and email != "—" else "U"
 
 hero_section(title=t("profile_title"), subtitle=t("profile_subtitle"), emoji="👤")
 
+from services.api_client import APIClient
+client = APIClient(st.session_state.get("access_token"))
+total_videos = 0
+try:
+    history_data = client.get_history()
+    analyses = history_data.get("analyses", [])
+    total_videos = len(analyses)
+except Exception:
+    pass
+
 # ── Profile card ──────────────────────────────────────────────────────────
 
 _, center, _ = st.columns([1, 2, 1])
@@ -60,7 +70,10 @@ with center:
         f'<div style="{id_style}">ID: {uid_short}…</div>'
         f'<div style="{info_style}">'
         f'<div style="{row_style}"><span style="{label_s}">{t("profile_label_email")}</span><span style="{val_s}">{email}</span></div>'
-        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">{t("profile_label_uid")}</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
+        f'<div style="{row_style}"><span style="{label_s}">{t("profile_label_uid")}</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
+        f'<div style="border-top:1px solid rgba(128,128,128,0.15);margin:0.8rem 0;"></div>'
+        f'<div style="{row_style}"><span style="{label_s}">{t("profile_stat_status")}</span><span style="{val_s}">🎓 {t("profile_stat_role_researcher")}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">{t("profile_stat_videos")}</span><span style="{val_s}">🎬 {total_videos}</span></div>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
