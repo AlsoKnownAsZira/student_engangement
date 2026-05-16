@@ -10,7 +10,8 @@
 | Deploy v2 | Single-pass + tuning tracker | YOLO Detect 3-class | High / Med / Low | Custom BotSORT (`new_track_thresh=0.4`, `track_buffer=60`) | 15 fps | Mengatasi ID explosion 58→22, tracker stable |
 | Deploy v3 | Single-pass + smoothing temporal | YOLO Detect 3-class + EngagementSmoother | engaged / mod / disengaged | Custom BotSORT | 15 fps | Tambah voting confidence-weighted window 10 frame, label tidak flicker |
 | Deploy v4 (SAHI eksperimen) | Sliced inference | YOLO Detect + SAHI tile + ByteTrack | engaged / mod / disengaged | supervision.ByteTrack | 15 fps | Eksperimen — dibuang karena tile overlap = ID explosion 58→131 |
-| **Deploy v5 (current)** | **2-stage detect → crop → classify** | **best_v5.pt (detect) + best_v10.pt (classify)** | **engaged / not-engaged** | **Custom BotSORT @3fps** | **3 fps efektif (stride 5)** | **Sesuai bimbingan: 2-class + sampling frame, sejalan training V10** |
+| Deploy v5 | 2-stage detect → crop → classify | best_v5.pt (detect) + best_v10.pt (classify) | engaged / not-engaged | Custom BotSORT @3fps | 3 fps efektif (stride 5) | Sesuai bimbingan: 2-class + sampling frame, sejalan training V10 |
+| **Deploy v6 (current)** | **2-stage + tracker tuning + post-process fragment merge** | **best_v5.pt + best_v10.pt** | **engaged / not-engaged** | **Custom BotSORT @3fps (match_thresh=0.90, track_buffer=30)** | **3 fps efektif (stride 5)** | **Kurangi ID explosion: tracker lebih toleran + merge track ephemeral** |
 
 ---
 
@@ -226,6 +227,72 @@ Default threshold (0.170) dikalibrasi di sesi `Kelas9_2mar_0906`. Untuk kelas de
 
 ---
 
+### Deploy v6 (current) — Tracker Tuning + Post-Process Fragment Merge
+
+> **Latar belakang:** Analisis CSV dari dua video uji (39 detik dan 6 menit) menunjukkan ID explosion yang persisten walau sudah pakai `new_track_thresh=0.4`. Video 6 menit menghasilkan 99 unique track IDs untuk ~30 siswa, dengan 57 track ephemeral (<5 frame) dan median lifespan hanya 3 frame.
+
+#### Root cause ID explosion (dua penyebab utama)
+
+| Penyebab | Mekanisme | Perubahan |
+|----------|-----------|-----------|
+| `match_thresh=0.85` kurang permissive | `match_thresh` = max IoU distance yang dibolehkan (IoU distance = 1−IoU). Nilai lebih tinggi = lebih toleran. Frame stride 5 (gap 1/3 detik) menyebabkan positional jump → IoU drop → asosiasi gagal → ID baru | Naikkan ke **0.90** |
+| `track_buffer=18` kurang panjang | Buffer habis (6 detik) saat occlusion panjang → track mati → ID baru saat muncul lagi | Naikkan ke **30 (≈10 detik)** |
+| Track ephemeral sisa (noise) | Fragmen yang tetap lolos jadi noise di output analisis | Post-process **merge** via `analyze_result.py` |
+
+#### Perubahan `custom_botsort.yaml`
+
+| Parameter | Deploy v5 | Deploy v6 | Alasan |
+|-----------|-----------|-----------|--------|
+| `match_thresh` | 0.85 | **0.90** | Lebih permissive: max IoU distance naik, tolerir positional jump dari frame stride 5 |
+| `track_buffer` | 18 (≈6 detik) | **30 (≈10 detik)** | Track tahan lebih lama saat occlusion |
+| `new_track_thresh` | 0.4 | 0.4 | Tetap — sudah efektif cegah ID baru dari noise |
+| `frame_rate` | 3 | 3 | Tetap |
+
+#### Post-processing: `merge_track_fragments` (`analyze_result.py`)
+
+Fungsi baru `ResultsAnalyzer.merge_track_fragments(df, min_frames, max_merge_dist)`:
+- Identifikasi **ephemeral tracks** (penampilan < `min_frames`, default 5)
+- Hitung rata-rata centroid bbox tiap track
+- Remap ephemeral track ke dominant track terdekat dalam radius `max_merge_dist` px (default 150px, dalam koordinat frame asli)
+- Tidak mengubah model atau weights — murni post-processing pada output CSV
+
+**Cara pakai:**
+```bash
+# Standar (tanpa merge)
+python phase4_pipeline/analyze_result.py --csv output.csv
+
+# Dengan fragment merge
+python phase4_pipeline/analyze_result.py --csv output.csv --merge-fragments
+
+# Kustom threshold
+python phase4_pipeline/analyze_result.py --csv output.csv --merge-fragments \
+  --min-track-frames 8 --max-merge-dist 200
+```
+
+**Contoh output:**
+```
+✓ Fragment merge: 57 ephemeral track(s) → 18 dominant track(s)
+✓ Unique students: 42 → 28 (setelah merge)
+```
+
+#### File yang Berubah di Deploy v6
+
+| File | Perubahan |
+|------|-----------|
+| `phase4_pipeline/custom_botsort.yaml` | `match_thresh 0.85→0.90`, `track_buffer 18→30`, update komentar |
+| `phase4_pipeline/analyze_result.py` | Tambah `merge_track_fragments()` static method + `--merge-fragments` CLI flag |
+
+#### Catatan: Sweet Spot Det vs Cls (tidak diubah di v6)
+
+Dari analisis brainstorm, det dan cls harus di-tune dengan metrik berbeda:
+- **Detector** → tune untuk recall tinggi (`conf_threshold=0.2`, sudah oke); recall kritis karena miss detector = classifier tidak pernah jalan
+- **Classifier** → tune threshold lewat per-session calibration (sudah done di V10, thr=0.170)
+- **Cls threshold tidak mempengaruhi tracking** — cls berjalan setelah tracking, ID explosion murni masalah BotSORT + detection gap
+
+Retrain detector 1-class tidak direkomendasikan untuk skripsi — `best_v5.pt` domain-tuned di CCTV kelas Indonesia lebih berharga dari 1-class purity, dan gain marginal (~1-3%).
+
+---
+
 ## Kesimpulan
 
 1. **Deploy v5 menyelaraskan web dengan training V10** — 2-class, threshold calibrated, 2-stage pipeline. Sebelumnya web masih 3-class dan single-pass (sesuai V1–V4 lama).
@@ -233,3 +300,4 @@ Default threshold (0.170) dikalibrasi di sesi `Kelas9_2mar_0906`. Untuk kelas de
 3. **Tracker disesuaikan untuk 3 fps efektif** — `frame_rate=3`, `track_buffer=18` (≈6 detik). Tetap konservatif dengan `new_track_thresh=0.4` untuk cegah ID explosion. Detector class output diabaikan supaya class flip tidak memecah ID.
 4. **Database di-DROP & RECREATE** — keputusan disepakati di bimbingan; data 3-class lama tidak compatible. Tabel baru juga simpan `classify_threshold` & `frame_stride` per analisis untuk audit metodologi.
 5. **Calibration default 0.170** dipakai langsung; opsi recalibrate per-konteks tersedia via env var (tidak butuh retrain model).
+6. **Deploy v6 mengatasi ID explosion** — dua tuning BotSORT (match_thresh 0.85→0.90, track_buffer 18→30) + post-process fragment merge di `analyze_result.py`. Tidak mengubah model, weights, atau database schema.

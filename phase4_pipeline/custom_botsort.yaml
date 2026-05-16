@@ -4,16 +4,17 @@
 # Disetel untuk pipeline 2-stage V10 dengan frame stride 5
 # (source 15fps -> inferensi efektif 3fps).
 #
-# Perubahan dari versi sebelumnya:
+# Perubahan dari versi sebelumnya (Deploy v5 → v6):
 #   - frame_rate: 15 -> 3 (sesuai inferensi efektif)
-#   - track_buffer: 60 -> 18 (≈6 detik @ 3fps; cukup untuk siswa nunduk
-#     sebentar / tertutup orang lain dan kembali muncul)
+#   - track_buffer: 60 -> 18 -> 30 (≈10 detik @ 3fps; track lebih tahan
+#     saat occlusion panjang, mengurangi ID fragmentation di video panjang)
+#   - match_thresh: 0.85 -> 0.90 (lebih permissive: IoU distance max naik,
+#     tolerir positional jump lebih besar dari frame stride 5)
 #
-# Threshold lainnya tetap (sudah teruji untuk CCTV kelas):
+# Threshold stabil (tidak diubah):
 #   - track_high_thresh 0.2  (terima deteksi confidence rendah)
 #   - track_low_thresh  0.05 (pertahankan track dengan conf sangat rendah)
 #   - new_track_thresh  0.4  (selektif bikin ID baru -> kurangi ID explosion)
-#   - match_thresh      0.85 (toleran matching antar frame)
 # =============================================================================
 
 tracker_type: botsort
@@ -26,9 +27,14 @@ fuse_score: true
 
 # --- Track Retention ---
 # track_buffer dihitung dalam JUMLAH FRAME, bukan detik.
-# Pada inferensi efektif 3fps: buffer 18 frame ≈ 6 detik.
-track_buffer: 18
-match_thresh: 0.85
+# Pada inferensi efektif 3fps: buffer 30 frame ≈ 10 detik.
+# Dinaikkan dari 18 untuk mengurangi ID fragmentation di video panjang.
+track_buffer: 30
+# match_thresh: maximum IoU distance yang dibolehkan untuk asosiasi track↔detection.
+# IoU distance = 1 - IoU, jadi nilai lebih tinggi = lebih permissive.
+# Dinaikkan dari 0.85 → 0.90 untuk tolerir positional jump lebih besar
+# akibat frame stride 5 (gap 1/3 detik antar sampled frame).
+match_thresh: 0.90
 
 # --- Appearance & Motion ---
 proximity_thresh: 0.5
