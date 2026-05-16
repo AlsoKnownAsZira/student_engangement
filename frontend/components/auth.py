@@ -127,6 +127,15 @@ def show_auth_page():
                             st.error(t("err_backend"))
                         except requests.exceptions.Timeout:
                             st.error(t("err_timeout"))
+                        except requests.exceptions.HTTPError as e:
+                            try:
+                                detail = e.response.json().get("detail", "")
+                                if "Invalid login credentials" in detail:
+                                    st.error(t("err_invalid_creds"))
+                                else:
+                                    st.error(t("err_login_fail", detail))
+                            except Exception:
+                                st.error(t("err_login_fail", e))
                         except Exception as e:
                             st.error(t("err_login_fail", e))
 
@@ -160,6 +169,15 @@ def show_auth_page():
                             st.error(t("err_backend"))
                         except requests.exceptions.Timeout:
                             st.error(t("err_timeout"))
+                        except requests.exceptions.HTTPError as e:
+                            try:
+                                detail = e.response.json().get("detail", "")
+                                if "already registered" in detail.lower() or "user already exists" in detail.lower():
+                                    st.error(t("err_email_taken"))
+                                else:
+                                    st.error(t("err_signup_fail", detail))
+                            except Exception:
+                                st.error(t("err_signup_fail", e))
                         except Exception as e:
                             st.error(t("err_signup_fail", e))
 
