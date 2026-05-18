@@ -30,7 +30,26 @@ echo ""
 
 # ── Pre-flight checks ────────────────────────────────────────────
 OK=true
-for f in ".env" "models/yolo11s.pt" "models/best.pt"; do
+
+# Default models (same as backend/config.py)
+DETECTION_MODEL="models/best_v5.pt"
+CLASSIFIER_MODEL="models/best_v10.pt"
+
+# Read model paths from .env if specified
+if [ -f ".env" ]; then
+    ENV_DET=$(grep '^DETECTION_MODEL_PATH=' .env | cut -d '=' -f 2- | tr -d '\r' | xargs)
+    if [ -n "$ENV_DET" ]; then DETECTION_MODEL="$ENV_DET"; fi
+    
+    ENV_CLS=$(grep '^CLASSIFIER_MODEL_PATH=' .env | cut -d '=' -f 2- | tr -d '\r' | xargs)
+    if [ -n "$ENV_CLS" ]; then CLASSIFIER_MODEL="$ENV_CLS"; fi
+fi
+
+echo -e "\e[36m[i] Active Models:\e[0m"
+echo -e "    Detector:   \e[33m$DETECTION_MODEL\e[0m"
+echo -e "    Classifier: \e[33m$CLASSIFIER_MODEL\e[0m"
+echo ""
+
+for f in ".env" "$DETECTION_MODEL" "$CLASSIFIER_MODEL"; do
     if [ ! -f "$f" ]; then
         echo -e "\e[31m  MISSING: $f\e[0m"
         OK=false

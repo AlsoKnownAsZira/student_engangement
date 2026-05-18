@@ -11,7 +11,10 @@ from pathlib import Path
 # ============================================================================
 
 # Dataset video OUC-CGE
-VIDEO_DATASET_ROOT = r"F:\OUC-CGE-dataset"
+if os.name == 'nt':
+    VIDEO_DATASET_ROOT = r"F:\OUC-CGE-dataset"
+else:
+    VIDEO_DATASET_ROOT = "/run/media/zira/01DB4DDB7993D670/OUC-CGE-dataset"  # Adjust if mounted elsewhere
 VIDEO_PATHS = {
     'high': os.path.join(VIDEO_DATASET_ROOT, "high"),
     'med': os.path.join(VIDEO_DATASET_ROOT, "med"),
@@ -19,7 +22,7 @@ VIDEO_PATHS = {
 }
 
 # Working directory
-WORK_DIR = r"D:\kuliah\Skripsi\person-tracking-engagement"
+WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Output directories
 OUTPUT_DIR = os.path.join(WORK_DIR, "outputs")
@@ -29,7 +32,7 @@ PERSON_CROPS_DIR = os.path.join(OUTPUT_DIR, "person_crops")
 TRAINED_MODELS_DIR = os.path.join(OUTPUT_DIR, "trained_models")
 
 # Runs directory (untuk training results)
-RUNS_DIR = r"D:\kuliah\Skripsi\runs"
+RUNS_DIR = os.path.join(os.path.dirname(WORK_DIR), "runs")
 
 # Create directories if not exist
 for dir_path in [OUTPUT_DIR, POC_RESULTS_DIR, ANNOTATIONS_DIR, 

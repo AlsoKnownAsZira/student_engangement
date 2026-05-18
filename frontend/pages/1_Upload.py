@@ -20,6 +20,7 @@ from fe_config import (
     PAGE_TITLE, PAGE_ICON, ALLOWED_EXTENSIONS,
     MAX_VIDEO_SIZE_MB, STATUS_POLL_INTERVAL,
 )
+from i18n import t
 
 st.set_page_config(page_title=f"Upload | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
@@ -28,38 +29,38 @@ inject_global_css()
 show_user_sidebar()
 
 hero_section(
-    title="Upload Classroom Video",
-    subtitle=f"Upload a video (max {MAX_VIDEO_SIZE_MB} MB) and let AI analyze student engagement",
+    title=t("upload_title"),
+    subtitle=t("upload_subtitle", MAX_VIDEO_SIZE_MB),
     emoji="📤",
 )
 
 # ── Instructions ──────────────────────────────────────────────────────────
 
-section_header("How It Works", "⚡")
+section_header(t("how_it_works"), "⚡")
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    card('<div style="text-align:center;">'
-         '<div style="font-size:1.8rem;margin-bottom:0.4rem;">1️⃣</div>'
-         '<div style="font-weight:600;margin-bottom:0.2rem;">Upload</div>'
-         '<div style="font-size:0.85rem;opacity:0.7;">Select a classroom video file</div>'
-         '</div>')
+    card(f'<div style="text-align:center;">'
+         f'<div style="font-size:1.8rem;margin-bottom:0.4rem;">1️⃣</div>'
+         f'<div style="font-weight:600;margin-bottom:0.2rem;">{t("step1_title")}</div>'
+         f'<div style="font-size:0.85rem;opacity:0.7;">{t("step1_desc")}</div>'
+         f'</div>')
 with col2:
-    card('<div style="text-align:center;">'
-         '<div style="font-size:1.8rem;margin-bottom:0.4rem;">2️⃣</div>'
-         '<div style="font-weight:600;margin-bottom:0.2rem;">Process</div>'
-         '<div style="font-size:0.85rem;opacity:0.7;">AI detects, tracks &amp; classifies students</div>'
-         '</div>')
+    card(f'<div style="text-align:center;">'
+         f'<div style="font-size:1.8rem;margin-bottom:0.4rem;">2️⃣</div>'
+         f'<div style="font-weight:600;margin-bottom:0.2rem;">{t("step2_title")}</div>'
+         f'<div style="font-size:0.85rem;opacity:0.7;">{t("step2_desc")}</div>'
+         f'</div>')
 with col3:
-    card('<div style="text-align:center;">'
-         '<div style="font-size:1.8rem;margin-bottom:0.4rem;">3️⃣</div>'
-         '<div style="font-weight:600;margin-bottom:0.2rem;">Results</div>'
-         '<div style="font-size:0.85rem;opacity:0.7;">View per-student engagement reports</div>'
-         '</div>')
+    card(f'<div style="text-align:center;">'
+         f'<div style="font-size:1.8rem;margin-bottom:0.4rem;">3️⃣</div>'
+         f'<div style="font-weight:600;margin-bottom:0.2rem;">{t("step3_title")}</div>'
+         f'<div style="font-size:0.85rem;opacity:0.7;">{t("step3_desc")}</div>'
+         f'</div>')
 
 # ── File uploader ─────────────────────────────────────────────────────────
 
-section_header("Select Video", "🎬")
+section_header(t("select_video"), "🎬")
 
 uploaded = st.file_uploader(
     "Choose a video file",
@@ -72,7 +73,7 @@ if uploaded is not None:
     st.video(uploaded)
     st.caption(f"📁 {uploaded.name} — {uploaded.size / 1024 / 1024:.1f} MB")
 
-    if st.button("🚀 Analyze Engagement", type="primary", use_container_width=True):
+    if st.button(t("btn_analyze"), type="primary", use_container_width=True):
         api = get_api_client()
 
         with st.spinner("Mengunggah video ke server…"):
@@ -80,43 +81,24 @@ if uploaded is not None:
                 resp = api.upload_video(uploaded, uploaded.name)
 
             except _requests.exceptions.ReadTimeout:
-                # Backend mungkin sudah menerima video tapi response terlambat.
-                # Arahkan user ke History daripada tampilkan error teknis.
-                st.warning(
-                    "⏱️ **Server sedang memproses video Anda.**  \n"
-                    "Koneksi ke server timeout, tapi video kemungkinan besar "
-                    "sudah diterima dan sedang diproses.  \n\n"
-                    "Silakan cek halaman **History** untuk memantau status analisis."
-                )
-                if st.button("📋 Buka History", type="primary"):
+                st.warning(t("upload_timeout"))
+                if st.button(t("btn_open_history"), type="primary"):
                     st.switch_page("pages/3_History.py")
                 st.stop()
 
             except _requests.exceptions.ConnectionError:
-                st.error(
-                    "❌ **Tidak bisa terhubung ke server.**  \n"
-                    "Pastikan backend sudah berjalan di `http://localhost:8000`."
-                )
+                st.error(t("upload_conn_err"))
                 st.stop()
 
             except Exception as e:
-                st.error(
-                    f"❌ **Upload gagal.**  \n"
-                    f"Detail teknis: `{e}`  \n\n"
-                    f"Coba lagi atau cek halaman History jika video sudah pernah diupload."
-                )
-                if st.button("📋 Cek History", key="err_history"):
+                st.error(t("upload_fail", e))
+                if st.button(t("btn_check_history"), key="err_history"):
                     st.switch_page("pages/3_History.py")
                 st.stop()
 
-        # Upload berhasil — langsung arahkan ke History untuk polling
         analysis_id = resp["analysis_id"]
-        st.success(
-            f"✅ **Video berhasil dikirim!**  \n"
-            f"Pipeline analisis sedang berjalan di background.  \n"
-            f"ID Analisis: `{analysis_id}`"
-        )
-        st.info("🔄 Anda akan diarahkan ke halaman History untuk memantau progress…")
+        st.success(t("upload_success", analysis_id))
+        st.info(t("upload_redirecting"))
         time.sleep(2)
         st.session_state["last_analysis_id"] = analysis_id
         st.switch_page("pages/3_History.py")

@@ -13,6 +13,7 @@ import streamlit as st
 from components.auth import require_auth, show_user_sidebar, logout
 from components.styles import inject_global_css, hero_section, init_theme, _palette
 from fe_config import PAGE_TITLE, PAGE_ICON
+from i18n import t
 
 st.set_page_config(page_title=f"Profile | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
@@ -25,7 +26,17 @@ email = st.session_state.get("user_email", "—")
 user_id = st.session_state.get("user_id", "—")
 initial = email[0].upper() if email and email != "—" else "U"
 
-hero_section(title="Your Profile", subtitle="Account information and settings", emoji="👤")
+hero_section(title=t("profile_title"), subtitle=t("profile_subtitle"), emoji="👤")
+
+from services.api_client import APIClient
+client = APIClient(st.session_state.get("access_token"))
+total_videos = 0
+try:
+    history_data = client.get_history()
+    analyses = history_data.get("analyses", [])
+    total_videos = len(analyses)
+except Exception:
+    pass
 
 # ── Profile card ──────────────────────────────────────────────────────────
 
@@ -33,22 +44,21 @@ _, center, _ = st.columns([1, 2, 1])
 
 with center:
     card_style = (
-        f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:20px;"
-        f"padding:2.5rem;text-align:center;box-shadow:0 8px 32px {p['shadow']};"
-        f"backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);"
+        "background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.15);border-radius:20px;"
+        "padding:2.5rem;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.05);"
     )
     avatar_style = (
-        f"width:88px;height:88px;background:linear-gradient(135deg,{p['accent']},{p['accent2']});"
-        f"border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
-        f"font-size:2.2rem;font-weight:700;color:#0f172a !important;margin-bottom:1.2rem;"
-        f"box-shadow:0 8px 24px rgba(56,189,248,0.3),0 0 40px rgba(56,189,248,0.1);"
+        "width:88px;height:88px;background:var(--primary-color);"
+        "border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"
+        "font-size:2.2rem;font-weight:700;color:white;margin-bottom:1.2rem;"
+        "box-shadow:0 4px 12px rgba(0,0,0,0.1);"
     )
-    name_style = f"color:{p['text_primary']} !important;font-size:1.25rem;font-weight:700;margin-bottom:0.3rem;font-family:Outfit,sans-serif;letter-spacing:-0.01em;"
-    id_style = f"color:{p['text_muted']} !important;font-size:0.8rem;font-family:monospace;margin-bottom:1.8rem;"
-    info_style = f"background:{p['bg_card_solid']};border-radius:14px;padding:1.2rem;border:1px solid {p['border']};"
+    name_style = "color:var(--text-color);font-size:1.25rem;font-weight:700;margin-bottom:0.3rem;font-family:Inter,sans-serif;letter-spacing:-0.01em;"
+    id_style = "color:var(--text-color);opacity:0.7;font-size:0.8rem;font-family:monospace;margin-bottom:1.8rem;"
+    info_style = "background:var(--background-color);border-radius:14px;padding:1.2rem;border:1px solid rgba(128,128,128,0.15);"
     row_style = "display:flex;justify-content:space-between;margin-bottom:0.6rem;"
-    label_s = f"color:{p['text_secondary']} !important;font-size:0.88rem;"
-    val_s = f"color:{p['text_primary']} !important;font-size:0.88rem;font-weight:500;"
+    label_s = "color:var(--text-color);opacity:0.8;font-size:0.88rem;"
+    val_s = "color:var(--text-color);font-size:0.88rem;font-weight:500;"
 
     uid_short = user_id[:8] if user_id != "—" else "—"
     uid_med = user_id[:16] if user_id != "—" else "—"
@@ -59,12 +69,15 @@ with center:
         f'<div style="{name_style}">{email}</div>'
         f'<div style="{id_style}">ID: {uid_short}…</div>'
         f'<div style="{info_style}">'
-        f'<div style="{row_style}"><span style="{label_s}">Email</span><span style="{val_s}">{email}</span></div>'
-        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">User ID</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
+        f'<div style="{row_style}"><span style="{label_s}">{t("profile_label_email")}</span><span style="{val_s}">{email}</span></div>'
+        f'<div style="{row_style}"><span style="{label_s}">{t("profile_label_uid")}</span><span style="{val_s}font-family:monospace;">{uid_med}…</span></div>'
+        f'<div style="border-top:1px solid rgba(128,128,128,0.15);margin:0.8rem 0;"></div>'
+        f'<div style="{row_style}"><span style="{label_s}">{t("profile_stat_status")}</span><span style="{val_s}">🎓 {t("profile_stat_role_researcher")}</span></div>'
+        f'<div style="display:flex;justify-content:space-between;"><span style="{label_s}">{t("profile_stat_videos")}</span><span style="{val_s}">🎬 {total_videos}</span></div>'
         f'</div></div>',
         unsafe_allow_html=True,
     )
 
     st.markdown('<div style="height:1.5rem;"></div>', unsafe_allow_html=True)
-    if st.button("🚪 Logout", type="primary", use_container_width=True):
+    if st.button(t("logout"), type="primary", use_container_width=True):
         logout()

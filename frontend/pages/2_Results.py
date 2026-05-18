@@ -24,6 +24,7 @@ from fe_config import (
     PAGE_TITLE, PAGE_ICON,
     ENGAGEMENT_COLORS, ENGAGEMENT_LABELS, ENGAGEMENT_EMOJI,
 )
+from i18n import t
 
 st.set_page_config(page_title=f"Results | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
@@ -37,16 +38,16 @@ analysis_id = st.session_state.get("last_analysis_id")
 
 if not analysis_id:
     hero_section(
-        title="No Analysis Selected",
-        subtitle="Upload a video or select an analysis from History to view results.",
+        title=t("results_no_analysis"),
+        subtitle=t("results_no_analysis_sub"),
         emoji="📊",
     )
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📤 Go to Upload", type="primary", use_container_width=True):
+        if st.button(t("btn_go_upload"), type="primary", use_container_width=True):
             st.switch_page("pages/1_Upload.py")
     with col2:
-        if st.button("📋 Go to History", use_container_width=True):
+        if st.button(t("btn_go_history"), use_container_width=True):
             st.switch_page("pages/3_History.py")
     st.stop()
 
@@ -57,11 +58,11 @@ api = get_api_client()
 try:
     result = api.get_result(analysis_id)
 except Exception as e:
-    st.error(f"Could not load results: {e}")
+    st.error(t("results_load_err", e))
     st.stop()
 
 if result["status"] != "completed":
-    st.warning(f"Analysis status: **{result['status']}**. Results are not ready yet.")
+    st.warning(t("results_not_ready", result["status"]))
     st.stop()
 
 class_summary = result["class_summary"]
@@ -72,7 +73,7 @@ p = _palette()
 # ── Hero ──────────────────────────────────────────────────────────────────
 
 hero_section(
-    title="Analysis Results",
+    title=t("results_title"),
     subtitle=f"Video: {result['original_filename']}",
     emoji="📊",
 )
@@ -80,19 +81,19 @@ hero_section(
 # ── Header metrics ────────────────────────────────────────────────────────
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("👥 Total Students", metrics["total_students"])
-col2.metric("🎞️ Total Frames", metrics["total_frames"])
-col3.metric("🎯 Avg Confidence", f"{metrics['avg_score']}%")
+col1.metric(t("metric_students"), metrics["total_students"])
+col2.metric(t("metric_frames"), metrics["total_frames"])
+col3.metric(t("metric_confidence"), f"{metrics['avg_score']}%")
 if result.get("processing_time_seconds"):
-    col4.metric("⏱️ Processing Time", f"{result['processing_time_seconds']:.1f}s")
+    col4.metric(t("metric_time"), f"{result['processing_time_seconds']:.1f}s")
 else:
-    col4.metric("📊 Total Detections", metrics["total_detections"])
+    col4.metric(t("metric_detections"), metrics["total_detections"])
 
 st.divider()
 
 # ── Engagement distribution overview ──────────────────────────────────────
 
-section_header("Class Engagement Overview", "📈")
+section_header(t("section_class_summary"), "📈")
 
 col_pie, col_bars = st.columns([1, 1])
 
@@ -103,29 +104,27 @@ with col_pie:
 with col_bars:
     for level, emoji_icon, pct_key, color in [
         ("engaged", ENGAGEMENT_EMOJI["engaged"], "engaged_pct", ENGAGEMENT_COLORS["engaged"]),
-        ("moderately-engaged", ENGAGEMENT_EMOJI["moderately-engaged"], "moderate_pct", ENGAGEMENT_COLORS["moderately-engaged"]),
-        ("disengaged", ENGAGEMENT_EMOJI["disengaged"], "disengaged_pct", ENGAGEMENT_COLORS["disengaged"]),
+        ("not-engaged", ENGAGEMENT_EMOJI["not-engaged"], "not_engaged_pct", ENGAGEMENT_COLORS["not-engaged"]),
     ]:
         pct_val = metrics[pct_key]
-        bar_bg = p['bg_secondary']
+        bar_bg = "rgba(128,128,128,0.15)"
         label = ENGAGEMENT_LABELS[level]
         inner_html = (
             f'<div style="display:flex;align-items:center;gap:12px;">'
             f'<span style="font-size:1.4rem;">{emoji_icon}</span>'
             f'<div style="flex:1;">'
-            f'<div style="font-weight:600;color:{p["text_primary"]} !important;font-family:Inter,sans-serif;">{label}</div>'
+            f'<div style="font-weight:600;color:var(--text-color);font-family:Inter,sans-serif;">{label}</div>'
             f'<div style="margin-top:4px;height:8px;border-radius:4px;background:{bar_bg};overflow:hidden;">'
             f'<div style="width:{min(pct_val, 100)}%;height:100%;background:{color};border-radius:4px;transition:width 0.5s ease;"></div>'
             f'</div></div>'
-            f'<span style="font-weight:700;font-size:1.1rem;color:{color} !important;font-family:Inter,sans-serif;">{pct_val}%</span>'
+            f'<span style="font-weight:700;font-size:1.1rem;color:{color};font-family:Inter,sans-serif;">{pct_val}%</span>'
             f'</div>'
         )
         card(inner_html)
 
     st.markdown(
-        f'<p style="color:{p["text_secondary"]} !important;font-size:0.88rem;margin-top:0.5rem;">'
-        f'Based on <b>majority voting</b> across all frames for each of the '
-        f'<b>{metrics["total_students"]}</b> tracked students.</p>',
+        f'<p style="color:var(--text-color);opacity:0.8;font-size:0.88rem;margin-top:0.5rem;">'
+        f'{t("majority_vote_note", metrics["total_students"])}</p>',
         unsafe_allow_html=True,
     )
 
@@ -133,36 +132,35 @@ st.divider()
 
 # ── Annotated video ───────────────────────────────────────────────────────
 
-section_header("Annotated Video", "🎬")
+section_header(t("section_video"), "🎬")
 show_video(result.get("output_video_url"))
 
 st.divider()
 
 # ── Per-student results ───────────────────────────────────────────────────
 
-section_header("Per-Student Engagement", "👥")
+section_header(t("section_per_student"), "👥")
 
-tab_table, tab_bar, tab_stack = st.tabs(["📋 Table", "📊 Bar Chart", "📈 Vote Breakdown"])
+tab_table, tab_bar, tab_stack = st.tabs([t("tab_table"), t("tab_bar"), t("tab_stack")])
 
 with tab_table:
     if students:
         df = pd.DataFrame(students)
         df["final_engagement"] = df["final_engagement"].map(
-            lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {ENGAGEMENT_LABELS.get(x, x)}"
+            lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {t('label_engaged') if x == 'engaged' else t('label_not_engaged')}"
         )
         df = df.rename(columns={
-            "track_id": "Student ID",
-            "final_engagement": "Engagement Level",
-            "engaged_votes": "Engaged Frames",
-            "moderate_votes": "Moderate Frames",
-            "disengaged_votes": "Disengaged Frames",
-            "total_frames": "Total Frames",
-            "avg_confidence": "Avg Confidence",
-            "vote_percentage": "Majority Vote %",
+            "track_id": t("col_student_id"),
+            "final_engagement": t("col_engagement"),
+            "engaged_votes": t("col_engaged_votes"),
+            "not_engaged_votes": t("col_not_engaged_votes"),
+            "total_frames": t("col_total_frames"),
+            "avg_confidence": t("col_avg_conf"),
+            "vote_percentage": t("col_majority_vote"),
         })
         st.dataframe(df, use_container_width=True, hide_index=True)
     else:
-        st.info("No student data available.")
+        st.info(t("no_student_data"))
 
 with tab_bar:
     fig_bar = student_engagement_bar(students)
@@ -176,7 +174,7 @@ st.divider()
 
 # ── Downloads ─────────────────────────────────────────────────────────────
 
-section_header("Downloads", "💾")
+section_header(t("section_downloads"), "💾")
 
 dcol1, dcol2 = st.columns(2)
 
@@ -185,29 +183,29 @@ with dcol1:
     if csv_url:
         card(
             f'<a href="{csv_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:12px;">'
-            f'<span style="font-size:1.6rem;filter:drop-shadow(0 0 6px rgba(56,189,248,0.3));">📄</span>'
-            f'<div><div style="font-weight:700;color:{p["accent"]} !important;font-family:Outfit,sans-serif;">Download Raw CSV</div>'
-            f'<div style="font-size:0.8rem;color:{p["text_secondary"]} !important;">Per-frame tracking data</div></div>'
+            f'<span style="font-size:1.6rem;">📄</span>'
+            f'<div><div style="font-weight:700;color:var(--primary-color);font-family:Inter,sans-serif;">{t("download_csv_title")}</div>'
+            f'<div style="font-size:0.8rem;color:var(--text-color);opacity:0.8;">{t("download_csv_sub")}</div></div>'
             f'</a>'
         )
     else:
-        st.info("CSV not available.")
+        st.info(t("no_csv"))
 
 with dcol2:
     video_url = result.get("output_video_url")
     if video_url:
         card(
             f'<a href="{video_url}" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:12px;">'
-            f'<span style="font-size:1.6rem;filter:drop-shadow(0 0 6px rgba(167,139,250,0.3));">🎬</span>'
-            f'<div><div style="font-weight:700;color:{p["accent2"]} !important;font-family:Outfit,sans-serif;">Download Annotated Video</div>'
-            f'<div style="font-size:0.8rem;color:{p["text_secondary"]} !important;">Video with bounding boxes &amp; labels</div></div>'
+            f'<span style="font-size:1.6rem;">🎬</span>'
+            f'<div><div style="font-weight:700;color:var(--primary-color);font-family:Inter,sans-serif;">{t("download_video_title")}</div>'
+            f'<div style="font-size:0.8rem;color:var(--text-color);opacity:0.8;">{t("download_video_sub")}</div></div>'
             f'</a>'
         )
     else:
-        st.info("Annotated video not available.")
+        st.info(t("no_video"))
 
 st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
 _, btn_col, _ = st.columns([1, 2, 1])
 with btn_col:
-    if st.button("← Back to History", use_container_width=True):
+    if st.button(t("btn_back_history"), use_container_width=True):
         st.switch_page("pages/3_History.py")

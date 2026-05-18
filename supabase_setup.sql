@@ -1,10 +1,18 @@
 -- ═══════════════════════════════════════════════════════════════════
--- Supabase SQL setup
--- Run this in your Supabase SQL Editor (Dashboard → SQL → New query)
+-- Supabase SQL setup — V10 schema (2-class engaged / not-engaged)
+-- Run this in your Supabase SQL Editor (Dashboard → SQL → New query).
+--
+-- ⚠️  IMPORTANT: This script DROPS and RECREATES analyses + student_results.
+--     All previous data will be lost. Bimbingan keputusan: 2-class
+--     pipeline V10 tidak compatible dengan skema 3-class lama.
 -- ═══════════════════════════════════════════════════════════════════
 
--- 1. Create analyses table
-CREATE TABLE IF NOT EXISTS analyses (
+-- Drop existing 3-class tables if they exist (cascade -> student_results too)
+DROP TABLE IF EXISTS student_results CASCADE;
+DROP TABLE IF EXISTS analyses CASCADE;
+
+-- 1. analyses
+CREATE TABLE analyses (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     original_filename TEXT NOT NULL,
@@ -17,30 +25,35 @@ CREATE TABLE IF NOT EXISTS analyses (
     total_frames      INT,
     total_students    INT,
     avg_engagement_score FLOAT,
+    -- engagement_distribution JSONB shape:
+    --   {"engaged": 0.0..1.0, "not_engaged": 0.0..1.0}
     engagement_distribution JSONB,
     processing_time_seconds FLOAT,
+    -- V10 metadata (informational; nullable for backwards compat with future migrations)
+    classify_threshold      FLOAT,
+    frame_stride            INT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at TIMESTAMPTZ
 );
 
--- 2. Create student_results table
-CREATE TABLE IF NOT EXISTS student_results (
+-- 2. student_results — per-student majority-vote (2-class)
+CREATE TABLE student_results (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     analysis_id       UUID NOT NULL REFERENCES analyses(id) ON DELETE CASCADE,
     track_id          INT NOT NULL,
-    final_engagement  TEXT NOT NULL,
+    final_engagement  TEXT NOT NULL
+                      CHECK (final_engagement IN ('engaged','not-engaged')),
     engaged_votes     INT DEFAULT 0,
-    moderate_votes    INT DEFAULT 0,
-    disengaged_votes  INT DEFAULT 0,
+    not_engaged_votes INT DEFAULT 0,
     total_frames      INT DEFAULT 0,
     avg_confidence    FLOAT DEFAULT 0,
     vote_percentage   FLOAT DEFAULT 0
 );
 
 -- 3. Indexes for fast queries
-CREATE INDEX IF NOT EXISTS idx_analyses_user_id ON analyses(user_id);
-CREATE INDEX IF NOT EXISTS idx_analyses_status ON analyses(status);
-CREATE INDEX IF NOT EXISTS idx_student_results_analysis ON student_results(analysis_id);
+CREATE INDEX idx_analyses_user_id ON analyses(user_id);
+CREATE INDEX idx_analyses_status ON analyses(status);
+CREATE INDEX idx_student_results_analysis ON student_results(analysis_id);
 
 -- 4. Enable Row Level Security
 ALTER TABLE analyses ENABLE ROW LEVEL SECURITY;

@@ -1,5 +1,5 @@
 """
-Pipeline service — thin wrapper around the existing FullPipeline
+Pipeline service — wrapper around the V10 2-stage TwoStagePipeline
 that makes it usable from a web context (temp files, re-encoding, etc.).
 """
 
@@ -15,7 +15,7 @@ import pandas as pd
 
 # ---------------------------------------------------------------------------
 # Patch the project so imports inside phase4_pipeline work properly.
-# FullPipeline does `import config` and `from utils.…`, which expect the
+# TwoStagePipeline does `import config` and `from utils.…`, which expect the
 # project root to be on sys.path.
 # ---------------------------------------------------------------------------
 import sys
@@ -27,44 +27,50 @@ _project_root = settings.PROJECT_ROOT
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from phase4_pipeline.full_pipeline import FullPipeline   # noqa: E402
+from phase4_pipeline.full_pipeline import TwoStagePipeline   # noqa: E402
 
 logger = logging.getLogger("pipeline_service")
 
 
 class PipelineManager:
     """
-    Singleton-ish manager that loads models once and provides a
-    ``process()`` helper for each request.
+    Singleton-ish manager that loads detector + classifier once and provides
+    a ``process()`` helper for each request.
     """
 
     def __init__(self):
-        self._pipeline: Optional[FullPipeline] = None
-        self._lock = None  # will be set to asyncio.Lock in startup
+        self._pipeline: Optional[TwoStagePipeline] = None
+        self._lock = None  # asyncio.Lock — set in load_models
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 
     def load_models(self) -> None:
-        """Load YOLO models into memory. Call once at FastAPI startup."""
+        """Load YOLO detector + classifier into memory. Called at FastAPI startup."""
         import asyncio
 
         self._lock = asyncio.Lock()
 
-        logger.info("Loading ML models …")
+        logger.info("Loading V10 2-stage models …")
         start = time.time()
-        self._pipeline = FullPipeline(
-            main_model=settings.classifier_model_abs,
+        self._pipeline = TwoStagePipeline(
+            detector_model=settings.detection_model_abs,
+            classifier_model=settings.classifier_model_abs,
+            classify_threshold=settings.CLASSIFY_THRESHOLD,
             tracker_config=settings.TRACKER_CONFIG,
             conf_threshold=settings.CONF_THRESHOLD,
             iou_threshold=settings.IOU_THRESHOLD,
             device=settings.resolved_device,
-            use_sahi=settings.USE_SAHI,
-            sahi_slice_size=settings.SAHI_SLICE_SIZE,
-            sahi_overlap=settings.SAHI_OVERLAP,
+            smoothing_window=settings.SMOOTHING_WINDOW,
+            frame_stride=settings.FRAME_STRIDE,
+            classifier_imgsz=settings.CLASSIFIER_IMGSZ,
         )
         elapsed = time.time() - start
-        sahi_info = f", SAHI={'on' if settings.USE_SAHI else 'off'}"
-        logger.info(f"Models loaded in {elapsed:.1f}s  (device={settings.resolved_device}{sahi_info})")
+        logger.info(
+            f"Models loaded in {elapsed:.1f}s "
+            f"(device={settings.resolved_device}, "
+            f"stride={settings.FRAME_STRIDE}, "
+            f"thr={settings.CLASSIFY_THRESHOLD})"
+        )
 
     def is_ready(self) -> bool:
         return self._pipeline is not None
@@ -77,13 +83,13 @@ class PipelineManager:
         output_video: str | Path,
     ) -> tuple[pd.DataFrame, str, float]:
         """
-        Run the full detection → tracking → classification pipeline.
+        Run the V10 detection + tracking + classification pipeline.
 
         Returns
         -------
-        df : pd.DataFrame   — raw per-frame tracking data
-        final_video : str    — path to the browser-playable (H.264) video
-        elapsed : float      — wall-clock seconds
+        df          : pd.DataFrame — raw per-frame tracking data
+        final_video : str          — path to browser-playable (H.264) video
+        elapsed     : float        — wall-clock seconds
         """
         if not self.is_ready():
             raise RuntimeError("Models not loaded yet — call load_models() first.")
@@ -95,8 +101,6 @@ class PipelineManager:
             input_video = str(input_video)
             output_video = str(output_video)
 
-            # FullPipeline.process_video is synchronous / CPU-bound —
-            # FastAPI will run it in a thread via BackgroundTasks.
             import asyncio
             loop = asyncio.get_event_loop()
             df = await loop.run_in_executor(
@@ -106,7 +110,6 @@ class PipelineManager:
                 output_video,
             )
 
-            # Re-encode to H.264 so browsers can play it
             h264_path = self._reencode_h264(output_video)
 
             elapsed = time.time() - start
@@ -117,7 +120,7 @@ class PipelineManager:
         df = self._pipeline.process_video(
             video_path=input_path,
             output_path=output_path,
-            save_csv=False,       # we save CSV ourselves
+            save_csv=False,       # videos.py saves CSV from df itself
             show_preview=False,
         )
         return df
@@ -144,7 +147,8 @@ class PipelineManager:
             "-i", str(src),
             "-vcodec", "libx264",
             "-preset", "fast",
-            "-crf", "23",
+            "-crf", "28",
+            "-vf", "scale='min(1280,iw)':-2",  # cap width to stay under Supabase 50MB storage limit
             "-movflags", "+faststart",
             "-an",                  # drop audio (classroom video)
             str(dst),
@@ -152,7 +156,6 @@ class PipelineManager:
 
         try:
             subprocess.run(cmd, check=True, capture_output=True, timeout=600)
-            # Remove the original mp4v file to save space
             src.unlink(missing_ok=True)
             logger.info(f"H.264 re-encode complete → {dst}")
             return str(dst)

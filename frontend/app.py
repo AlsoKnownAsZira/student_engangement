@@ -21,6 +21,7 @@ from components.auth import (
     show_user_sidebar,
 )
 from components.styles import inject_global_css, hero_section, feature_card, init_theme
+from i18n import t
 
 st.set_page_config(
     page_title=PAGE_TITLE,
@@ -40,9 +41,38 @@ show_user_sidebar()
 if is_logged_in():
     hero_section(
         title=PAGE_TITLE,
-        subtitle="Analyze student engagement from classroom videos using AI-powered detection, tracking, and classification.",
+        subtitle=t("home_subtitle"),
         emoji=PAGE_ICON,
     )
+
+    # ── Quick Stats ───────────────────────────────────────────────────
+    from services.api_client import APIClient
+    client = APIClient(st.session_state.get("access_token"))
+    try:
+        history_data = client.get_history()
+        analyses = history_data.get("analyses", [])
+        if analyses:
+            total_videos = len(analyses)
+            total_students = sum(a.get("total_students") or 0 for a in analyses)
+            
+            valid_scores = [a.get("avg_engagement_score") for a in analyses if a.get("avg_engagement_score") is not None]
+            avg_engagement = sum(valid_scores) / len(valid_scores) if valid_scores else 0
+            
+            st.markdown(f"### 📈 {t('quick_stats_title')}")
+            st.markdown('<div style="margin-bottom: 0.5rem;"></div>', unsafe_allow_html=True)
+            
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric(t("stat_total_videos"), total_videos)
+            with m2:
+                st.metric(t("stat_total_students"), f"{total_students} 👥")
+            with m3:
+                # Kalikan 100 karena data dari backend berupa pecahan (contoh: 0.8)
+                st.metric(t("stat_avg_engagement"), f"{(avg_engagement * 100):.1f}%")
+                
+            st.markdown("<hr style='margin: 2rem 0; border-color: rgba(128,128,128,0.2);'/>", unsafe_allow_html=True)
+    except Exception:
+        pass
 
     # ── Feature cards ─────────────────────────────────────────────────
     col1, col2, col3 = st.columns(3)
@@ -50,39 +80,50 @@ if is_logged_in():
     with col1:
         feature_card(
             emoji="📤",
-            title="Upload Video",
-            description="Upload a classroom video and let AI analyze each student's engagement level.",
+            title=t("feat_upload_title"),
+            description=t("feat_upload_desc"),
             accent="#38bdf8",
         )
 
     with col2:
         feature_card(
             emoji="📊",
-            title="View Results",
-            description="See detailed per-student engagement reports with interactive charts and annotated video.",
+            title=t("feat_results_title"),
+            description=t("feat_results_desc"),
             accent="#34d399",
         )
 
     with col3:
         feature_card(
             emoji="📋",
-            title="History",
-            description="Browse all your past analyses, compare results, and download reports.",
+            title=t("feat_history_title"),
+            description=t("feat_history_desc"),
             accent="#a78bfa",
         )
 
-    st.markdown("")
+    st.markdown("<hr style='margin: 2rem 0; border-color: rgba(128,128,128,0.2);'/>", unsafe_allow_html=True)
+
+    # ── Quick Start Guide ─────────────────────────────────────────────
+    st.markdown(f"### {t('quick_start_title')}")
+    st.info(f"{t('qs_step1')}\n\n{t('qs_step2')}\n\n{t('qs_step3')}")
+    st.markdown("<br/>", unsafe_allow_html=True)
 
     # ── Quick health check ────────────────────────────────────────────
-    from services.api_client import APIClient
+    # APIClient is already imported above
 
     try:
         health = APIClient().health()
         if health.get("models_loaded"):
-            st.success(f"✅ Backend online — models loaded (device: {health.get('device', 'N/A')})")
+            raw_device = health.get("device", "N/A")
+            device_str = str(raw_device).strip().lower()
+            if device_str in ("cpu", "n/a", ""):
+                device_label = "CPU" if device_str == "cpu" else "N/A"
+            else:
+                device_label = f"GPU (cuda:{device_str.replace('cuda:', '')})"
+            st.success(t("backend_ok", device_label))
         else:
-            st.warning("⏳ Backend is starting up — models are still loading…")
+            st.warning(t("backend_loading"))
     except Exception:
-        st.error("❌ Cannot reach the backend API. Make sure FastAPI is running on port 8000.")
+        st.error(t("backend_error"))
 else:
     show_auth_page()

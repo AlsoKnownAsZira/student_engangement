@@ -1,8 +1,9 @@
 """
 Backend configuration — loads from environment variables / .env file.
+
+V10 pipeline = 2-stage (detector + classifier).
 """
 
-import os
 import torch
 from pathlib import Path
 from pydantic_settings import BaseSettings
@@ -18,21 +19,29 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = ""      # service-role key (for server-side ops)
 
     # --- Model paths (relative to project root) ---
-    DETECTION_MODEL_PATH: str = "models/yolo11s.pt"
-    CLASSIFIER_MODEL_PATH: str = "models/best.pt"
+    # V10 pipeline: 2-stage detect + classify.
+    DETECTION_MODEL_PATH: str = "models/best_v5.pt"
+    CLASSIFIER_MODEL_PATH: str = "models/best_v10.pt"
 
     # --- Processing ---
     DEVICE: str = "auto"                # "auto", "0" (GPU), or "cpu"
-    CONF_THRESHOLD: float = 0.2
+    CONF_THRESHOLD: float = 0.2         # Detector confidence threshold
     IOU_THRESHOLD: float = 0.5
     TRACKER_CONFIG: str = "custom_botsort.yaml"
     MAX_VIDEO_SIZE_MB: int = 200
     ALLOWED_EXTENSIONS: str = ".mp4,.avi,.mov,.mkv"
 
-    # --- SAHI (Slicing Aided Hyper Inference) ---
-    USE_SAHI: bool = False              # Enable sliced inference for small objects
-    SAHI_SLICE_SIZE: int = 640          # Tile size in pixels
-    SAHI_OVERLAP: float = 0.2          # Overlap ratio between tiles
+    # --- V10 classification ---
+    # P(engaged) >= threshold -> "engaged" else "not-engaged".
+    # Default 0.170 dari per-session calibration V10 (lihat phase3_training/calibrate_v10.py).
+    CLASSIFY_THRESHOLD: float = 0.170
+    CLASSIFIER_IMGSZ: int = 224
+
+    # --- Frame sampling ---
+    # Source classroom CCTV = 15fps. Stride 5 = inferensi efektif 3fps,
+    # cukup untuk engagement (perilaku temporal orde detik) dan ~5x lebih cepat.
+    FRAME_STRIDE: int = 5
+    SMOOTHING_WINDOW: int = 10          # Frames (di stride efektif)
 
     # --- Paths ---
     TEMP_DIR: str = "temp"

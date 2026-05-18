@@ -1,36 +1,52 @@
 # =============================================================================
-# Custom BotSORT Tracker Configuration - Optimized untuk CCTV Kelas
+# Custom BotSORT Tracker Configuration — V10 Pipeline (3 fps effective)
 # =============================================================================
-# Perubahan dari default:
-#   - track_high_thresh: 0.3 → 0.2 (terima deteksi confidence lebih rendah)
-#   - track_low_thresh: 0.1 → 0.05 (pertahankan track walau confidence sangat rendah)
-#   - new_track_thresh: 0.3 → 0.4 (harus lebih yakin untuk bikin ID baru)
-#   - track_buffer: 30 → 60 (tahan track hilang sampai 4 detik @15fps)
-#   - match_thresh: 0.8 → 0.85 (lebih toleran matching)
+# Disetel untuk pipeline 2-stage V10 dengan frame stride 5
+# (source 15fps -> inferensi efektif 3fps).
+#
+# Perubahan dari versi sebelumnya (Deploy v5 → v6):
+#   - frame_rate: 15 -> 3 (sesuai inferensi efektif)
+#   - track_buffer: 60 -> 18 -> 30 (≈10 detik @ 3fps; track lebih tahan
+#     saat occlusion panjang, mengurangi ID fragmentation di video panjang)
+#   - match_thresh: 0.85 -> 0.90 (lebih permissive: IoU distance max naik,
+#     tolerir positional jump lebih besar dari frame stride 5)
+#
+# Threshold stabil (tidak diubah):
+#   - track_high_thresh 0.2  (terima deteksi confidence rendah)
+#   - track_low_thresh  0.05 (pertahankan track dengan conf sangat rendah)
+#   - new_track_thresh  0.4  (selektif bikin ID baru -> kurangi ID explosion)
 # =============================================================================
 
 tracker_type: botsort
 
 # --- Detection Thresholds ---
-track_high_thresh: 0.2        # Deteksi di atas threshold ini langsung di-track
-track_low_thresh: 0.05        # Deteksi di bawah ini diabaikan; antara low-high = "second chance"
-new_track_thresh: 0.4         # Threshold untuk membuat track/ID BARU (lebih tinggi = lebih selektif)
-fuse_score: true              # Gabungkan detection score ke distance metric (required by newer Ultralytics)
+track_high_thresh: 0.2
+track_low_thresh: 0.05
+new_track_thresh: 0.4
+fuse_score: true
 
 # --- Track Retention ---
-track_buffer: 60              # Jumlah frame track dipertahankan tanpa deteksi (60 frame ≈ 4 detik @15fps)
-match_thresh: 0.85            # IoU matching threshold (lebih tinggi = lebih toleran)
+# track_buffer dihitung dalam JUMLAH FRAME, bukan detik.
+# Pada inferensi efektif 3fps: buffer 30 frame ≈ 10 detik.
+# Dinaikkan dari 18 untuk mengurangi ID fragmentation di video panjang.
+track_buffer: 30
+# match_thresh: maximum IoU distance yang dibolehkan untuk asosiasi track↔detection.
+# IoU distance = 1 - IoU, jadi nilai lebih tinggi = lebih permissive.
+# Dinaikkan dari 0.85 → 0.90 untuk tolerir positional jump lebih besar
+# akibat frame stride 5 (gap 1/3 detik antar sampled frame).
+match_thresh: 0.90
 
 # --- Appearance & Motion ---
-proximity_thresh: 0.5         # Spatial proximity threshold
-appearance_thresh: 0.25       # Appearance similarity threshold
-cmc_method: sparseOptFlow     # Camera Motion Compensation via sparse optical flow
+proximity_thresh: 0.5
+appearance_thresh: 0.25
+cmc_method: sparseOptFlow
 
 # --- Video Properties ---
-frame_rate: 15                # FPS video CCTV kelas
+# Inferensi efektif setelah frame_stride=5 dari source 15fps.
+frame_rate: 3
 
 # --- Re-Identification ---
-with_reid: false              # Matikan ReID (overhead tinggi, CCTV statis tidak butuh)
+with_reid: false
 
 # --- Kalman Filter ---
-gmc_method: sparseOptFlow     # Global Motion Compensation method
+gmc_method: sparseOptFlow

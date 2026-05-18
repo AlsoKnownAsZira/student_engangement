@@ -3,9 +3,9 @@ Videos router — upload a video and kick off background processing.
 """
 
 from __future__ import annotations
+import asyncio
 import io
 import logging
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,7 +18,6 @@ from fastapi import (
     UploadFile,
     status,
 )
-import pandas as pd
 
 from backend.config import get_settings
 from backend.dependencies import get_current_user
@@ -136,23 +135,26 @@ async def _process_video_task(
     6. Clean up temp files
     """
     try:
-        supabase_service.update_analysis(analysis_id, status="processing")
+        await asyncio.to_thread(supabase_service.update_analysis, analysis_id, status="processing")
 
-        # 1. Upload input video to Supabase Storage (moved here from request handler)
+        # 1. Upload input video to Supabase Storage
         try:
-            supabase_service.upload_file("input-videos", storage_input_path, temp_input)
+            await asyncio.to_thread(
+                supabase_service.upload_file, "input-videos", storage_input_path, temp_input
+            )
         except Exception as e:
             logger.warning(f"Input video Supabase upload failed (non-fatal): {e}")
             # Non-fatal — pipeline can still run from temp file
 
-        # 2. Run pipeline
+        # 2. Run pipeline (already async)
         temp_output = video_service.get_temp_output_path(uid)
         df, h264_video_path, elapsed = await pipeline_manager.process(
             temp_input, temp_output
         )
 
         if df is None or df.empty:
-            supabase_service.update_analysis(
+            await asyncio.to_thread(
+                supabase_service.update_analysis,
                 analysis_id,
                 status="failed",
                 error_message="No persons detected in video.",
@@ -160,36 +162,51 @@ async def _process_video_task(
             return
 
         # 3. Majority-vote analysis
-        report = analysis_service.analyse(df)
+        report = await asyncio.to_thread(analysis_service.analyse, df)
 
         # 4. Save CSV to temp then upload
         csv_temp = str(Path(temp_input).parent / "tracking_data.csv")
-        df.to_csv(csv_temp, index=False)
+        await asyncio.to_thread(df.to_csv, csv_temp, index=False)
 
         storage_video_path = f"{user_id}/{uid}/output.mp4"
         storage_csv_path = f"{user_id}/{uid}/tracking_data.csv"
 
-        supabase_service.upload_file("output-videos", storage_video_path, h264_video_path)
-        supabase_service.upload_file(
-            "output-videos", storage_csv_path, csv_temp, content_type="text/csv"
-        )
+        video_uploaded = False
+        try:
+            await asyncio.to_thread(
+                supabase_service.upload_file, "output-videos", storage_video_path, h264_video_path
+            )
+            video_uploaded = True
+        except Exception as e:
+            logger.warning(f"Output video upload failed (non-fatal, file too large?): {e}")
+
+        try:
+            await asyncio.to_thread(
+                supabase_service.upload_file,
+                "output-videos", storage_csv_path, csv_temp, content_type="text/csv"
+            )
+        except Exception as e:
+            logger.warning(f"CSV upload failed (non-fatal): {e}")
 
         # 5. Persist to DB
         class_summary = report["class_summary"]
-        supabase_service.update_analysis(
+        await asyncio.to_thread(
+            supabase_service.update_analysis,
             analysis_id,
             status="completed",
-            output_video_path=storage_video_path,
+            output_video_path=storage_video_path if video_uploaded else None,
             csv_path=storage_csv_path,
             total_frames=class_summary["total_frames"],
             total_students=class_summary["total_students"],
             avg_engagement_score=class_summary["avg_engagement_score"],
             engagement_distribution=class_summary["engagement_distribution"],
             processing_time_seconds=round(elapsed, 2),
+            classify_threshold=settings.CLASSIFY_THRESHOLD,
+            frame_stride=settings.FRAME_STRIDE,
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
 
-        supabase_service.insert_student_results(analysis_id, report["students"])
+        await asyncio.to_thread(supabase_service.insert_student_results, analysis_id, report["students"])
 
         logger.info(
             f"Analysis {analysis_id} completed — "
@@ -199,7 +216,8 @@ async def _process_video_task(
 
     except Exception as e:
         logger.exception(f"Processing failed for {analysis_id}")
-        supabase_service.update_analysis(
+        await asyncio.to_thread(
+            supabase_service.update_analysis,
             analysis_id,
             status="failed",
             error_message=str(e)[:500],

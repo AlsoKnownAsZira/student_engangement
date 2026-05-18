@@ -24,6 +24,7 @@ from fe_config import (
     PAGE_TITLE, PAGE_ICON,
     ENGAGEMENT_EMOJI, ENGAGEMENT_LABELS, ENGAGEMENT_COLORS,
 )
+from i18n import t
 
 st.set_page_config(page_title=f"History | {PAGE_TITLE}", page_icon=PAGE_ICON, layout="wide")
 require_auth()
@@ -32,8 +33,8 @@ inject_global_css()
 show_user_sidebar()
 
 hero_section(
-    title="Analysis History",
-    subtitle="Browse and manage all your past analyses",
+    title=t("history_title"),
+    subtitle=t("history_subtitle"),
     emoji="📋",
 )
 
@@ -43,10 +44,10 @@ p = _palette()
 try:
     history = api.get_history()
 except Exception as e:
-    st.error(f"Failed to load history: {e}")
+    st.error(t("history_load_err", e))
     st.stop()
 
-analyses = history.get("analyses", [])  
+analyses = history.get("analyses", [])
 
 # ── Cek apakah ada yang masih processing ─────────────────────────────────
 has_processing = any(a["status"] == "processing" for a in analyses)
@@ -55,30 +56,30 @@ has_processing = any(a["status"] == "processing" for a in analyses)
 col_title, col_btn = st.columns([6, 1])
 with col_title:
     st.markdown(
-        f'<p style="color:{p["text_secondary"]} !important;">Showing <b>{len(analyses)}</b> past analyses'
-        + (" — 🔴 ada yang sedang diproses, halaman akan refresh otomatis" if has_processing else "")
+        f'<p style="color:var(--text-color);opacity:0.8;">{t("showing_analyses", len(analyses))}'
+        + (t("showing_processing_suffix") if has_processing else "")
         + "</p>",
         unsafe_allow_html=True,
     )
 with col_btn:
-    if st.button("🔄 Refresh", use_container_width=True):
+    if st.button(t("btn_refresh"), use_container_width=True):
         st.rerun()
 
 if not analyses:
     empty_style = (
-        f"text-align:center;padding:3rem 1rem;background:{p['bg_card']};"
-        f"border:1px solid {p['border']};border-radius:14px;"
+        "text-align:center;padding:3rem 1rem;background:var(--secondary-background-color);"
+        "border:1px solid rgba(128,128,128,0.15);border-radius:14px;"
     )
     st.markdown(
         f'<div style="{empty_style}">'
         f'<div style="font-size:3rem;margin-bottom:0.8rem;">📭</div>'
-        f'<div style="font-size:1.1rem;font-weight:600;color:{p["text_primary"]} !important;margin-bottom:0.4rem;">No analyses yet</div>'
-        f'<div style="color:{p["text_secondary"]} !important;font-size:0.9rem;">Upload a classroom video to get started!</div>'
+        f'<div style="font-size:1.1rem;font-weight:600;color:var(--text-color);margin-bottom:0.4rem;">{t("empty_title")}</div>'
+        f'<div style="color:var(--text-color);opacity:0.8;font-size:0.9rem;">{t("empty_sub")}</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
     st.markdown("")
-    if st.button("📤 Go to Upload", type="primary", use_container_width=True):
+    if st.button(t("btn_upload_video"), type="primary", use_container_width=True):
         st.switch_page("pages/1_Upload.py")
     st.stop()
 
@@ -116,18 +117,16 @@ for item in analyses:
         except Exception:
             pass
 
-    # Build distribution dots HTML
+    # Build distribution dots HTML (2-class V10)
     dist_html = ""
     if dist and status == "completed":
         eng = dist.get("engaged", 0) * 100
-        mod = dist.get("moderately_engaged", dist.get("moderately-engaged", 0)) * 100
-        dis = dist.get("disengaged", 0) * 100
+        ne = dist.get("not_engaged", dist.get("not-engaged", 0)) * 100
         dot_style = "width:10px;height:10px;border-radius:50%;"
         dist_html = (
             f'<div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap;">'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Engaged <b>{eng:.0f}%</b></span></div>'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["moderately-engaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Moderate <b>{mod:.0f}%</b></span></div>'
-            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["disengaged"]};"></div><span style="font-size:0.82rem;color:{p["text_primary"]} !important;">Disengaged <b>{dis:.0f}%</b></span></div>'
+            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["engaged"]};"></div><span style="font-size:0.82rem;color:var(--text-color);">{t("label_engaged")} <b>{eng:.0f}%</b></span></div>'
+            f'<div style="display:flex;align-items:center;gap:4px;"><div style="{dot_style}background:{ENGAGEMENT_COLORS["not-engaged"]};"></div><span style="font-size:0.82rem;color:var(--text-color);">{t("label_not_engaged")} <b>{ne:.0f}%</b></span></div>'
             f'</div>'
         )
 
@@ -137,8 +136,8 @@ for item in analyses:
         processing_note = (
             f'<div style="margin-top:10px;padding:8px 12px;background:rgba(255,165,0,0.1);'
             f'border-left:3px solid #FFA500;border-radius:4px;font-size:0.83rem;'
-            f'color:{p["text_secondary"]} !important;">'
-            f'⏳ Sedang memproses video{elapsed_str} — halaman akan refresh otomatis setiap 10 detik.'
+            f'color:var(--text-color);opacity:0.8;">'
+            f'{t("processing_note", elapsed_str)}'
             f'</div>'
         )
     elif status == "failed":
@@ -146,16 +145,16 @@ for item in analyses:
         processing_note = (
             f'<div style="margin-top:10px;padding:8px 12px;background:rgba(255,0,0,0.08);'
             f'border-left:3px solid #FF4444;border-radius:4px;font-size:0.83rem;'
-            f'color:{p["text_secondary"]} !important;">'
+            f'color:var(--text-color);opacity:0.8;">'
             f'❌ Gagal: {err_msg[:120]}'
             f'</div>'
         )
     card_style = (
-        f"background:{p['bg_card']};border:1px solid {p['border']};border-radius:14px;"
-        f"padding:1.2rem 1.5rem;margin-bottom:0.8rem;box-shadow:0 2px 8px {p['shadow']};"
+        "background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.15);border-radius:14px;"
+        "padding:1.2rem 1.5rem;margin-bottom:0.8rem;box-shadow:0 2px 4px rgba(0,0,0,0.05);"
     )
-    meta_style = f"display:flex;gap:24px;margin-top:8px;color:{p['text_secondary']} !important;font-size:0.85rem;"
-    title_style = f"font-weight:700;font-size:1.05rem;color:{p['text_primary']} !important;font-family:Inter,sans-serif;"
+    meta_style = "display:flex;gap:24px;margin-top:8px;color:var(--text-color);opacity:0.8;font-size:0.85rem;"
+    title_style = "font-weight:700;font-size:1.05rem;color:var(--text-color);font-family:Inter,sans-serif;"
 
     st.markdown(
         f'<div style="{card_style}">'
@@ -163,7 +162,7 @@ for item in analyses:
         f'<span style="{title_style}">🎥 {filename}</span>'
         f'{badge}'
         f'</div>'
-        f'<div style="{meta_style}"><span style="color:{p["text_secondary"]} !important;">🕐 {created}</span><span style="color:{p["text_secondary"]} !important;">👥 {total_students} students</span><span style="color:{p["text_secondary"]} !important;">🎯 {avg_display}</span></div>'
+        f'<div style="{meta_style}"><span>🕐 {created}</span><span>👥 {total_students} {t("students_label")}</span><span>🎯 {avg_display}</span></div>'
         f'{dist_html}'
         f'{processing_note}'
         f'</div>',
@@ -174,17 +173,17 @@ for item in analyses:
     bcol1, bcol2 = st.columns([5, 1])
     with bcol1:
         if status == "completed":
-            if st.button("📊 View Results", key=f"view_{item['analysis_id']}", type="primary", use_container_width=True):
+            if st.button(t("btn_view_results"), key=f"view_{item['analysis_id']}", type="primary", use_container_width=True):
                 st.session_state["last_analysis_id"] = item["analysis_id"]
                 st.switch_page("pages/2_Results.py")
     with bcol2:
-        if st.button("🗑️ Delete", key=f"del_{item['analysis_id']}", help="Delete this analysis", use_container_width=True):
+        if st.button(t("btn_delete"), key=f"del_{item['analysis_id']}", use_container_width=True):
             try:
                 api.delete_analysis(item["analysis_id"])
-                st.success("Deleted!")
+                st.success(t("delete_success"))
                 st.rerun()
             except Exception as e:
-                st.error(f"Delete failed: {e}")
+                st.error(t("delete_fail", e))
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 

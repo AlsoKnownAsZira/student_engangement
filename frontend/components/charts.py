@@ -1,5 +1,6 @@
 """
 Plotly chart helpers for engagement visualisation — dark/light theme aware.
+V10: 2-class (engaged / not-engaged).
 """
 
 from __future__ import annotations
@@ -12,14 +13,13 @@ if _FRONTEND_DIR not in sys.path:
     sys.path.insert(0, _FRONTEND_DIR)
 
 import plotly.graph_objects as go
-import plotly.express as px
 import pandas as pd
 
 from fe_config import ENGAGEMENT_CHART_COLORS, ENGAGEMENT_LABELS
 from components.styles import get_chart_colors
 
-# Consistent ordering
-_LEVELS = ["engaged", "moderately-engaged", "disengaged"]
+# Consistent ordering — engaged first, not-engaged second
+_LEVELS = ["engaged", "not-engaged"]
 
 
 def _theme_layout(fig: go.Figure, title: str = "", height: int = 400, **kwargs) -> go.Figure:
@@ -56,16 +56,21 @@ def _theme_layout(fig: go.Figure, title: str = "", height: int = 400, **kwargs) 
     return fig
 
 
-def engagement_pie_chart(distribution: dict, title: str = "Engagement Distribution") -> go.Figure:
-    """Donut chart from distribution dict."""
-    c = get_chart_colors()
-
-    # Normalise key names (underscores vs dashes)
-    norm = {
-        "engaged": distribution.get("engaged", 0),
-        "moderately-engaged": distribution.get("moderately_engaged", distribution.get("moderately-engaged", 0)),
-        "disengaged": distribution.get("disengaged", 0),
+def _norm_distribution(distribution: dict) -> dict[str, float]:
+    """Normalise key naming variants -> {'engaged', 'not-engaged'}."""
+    return {
+        "engaged":     distribution.get("engaged", 0),
+        "not-engaged": distribution.get(
+            "not_engaged",
+            distribution.get("not-engaged", 0),
+        ),
     }
+
+
+def engagement_pie_chart(distribution: dict, title: str = "Engagement Distribution") -> go.Figure:
+    """Donut chart from distribution dict (2-class)."""
+    c = get_chart_colors()
+    norm = _norm_distribution(distribution)
 
     labels = [ENGAGEMENT_LABELS[lv] for lv in _LEVELS]
     values = [norm[lv] for lv in _LEVELS]
@@ -134,7 +139,7 @@ def student_engagement_bar(students: list[dict]) -> go.Figure:
 
 
 def vote_breakdown_stacked(students: list[dict]) -> go.Figure:
-    """Stacked horizontal bar showing vote counts per student."""
+    """Stacked horizontal bar showing vote counts per student (2-class)."""
     c = get_chart_colors()
     if not students:
         fig = go.Figure()
@@ -146,9 +151,8 @@ def vote_breakdown_stacked(students: list[dict]) -> go.Figure:
 
     fig = go.Figure()
     for level_key, col in [
-        ("engaged", "engaged_votes"),
-        ("moderately-engaged", "moderate_votes"),
-        ("disengaged", "disengaged_votes"),
+        ("engaged",     "engaged_votes"),
+        ("not-engaged", "not_engaged_votes"),
     ]:
         fig.add_trace(go.Bar(
             y=labels,
@@ -180,16 +184,15 @@ def vote_breakdown_stacked(students: list[dict]) -> go.Figure:
 def engagement_summary_metrics(class_summary: dict) -> dict[str, Any]:
     """Return nicely-formatted values suitable for st.metric calls."""
     dist = class_summary.get("engagement_distribution", {})
-    engaged_pct = dist.get("engaged", 0) * 100
-    moderate_pct = dist.get("moderately_engaged", dist.get("moderately-engaged", 0)) * 100
-    disengaged_pct = dist.get("disengaged", 0) * 100
+    norm = _norm_distribution(dist)
+    engaged_pct     = norm["engaged"] * 100
+    not_engaged_pct = norm["not-engaged"] * 100
 
     return {
-        "total_students": class_summary.get("total_students", 0),
-        "total_frames": class_summary.get("total_frames", 0),
+        "total_students":   class_summary.get("total_students", 0),
+        "total_frames":     class_summary.get("total_frames", 0),
         "total_detections": class_summary.get("total_detections", 0),
-        "avg_score": round(class_summary.get("avg_engagement_score", 0) * 100, 1),
-        "engaged_pct": round(engaged_pct, 1),
-        "moderate_pct": round(moderate_pct, 1),
-        "disengaged_pct": round(disengaged_pct, 1),
+        "avg_score":        round(class_summary.get("avg_engagement_score", 0) * 100, 1),
+        "engaged_pct":      round(engaged_pct, 1),
+        "not_engaged_pct":  round(not_engaged_pct, 1),
     }

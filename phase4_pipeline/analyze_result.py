@@ -37,16 +37,28 @@ class ResultsAnalyzer:
     CLASS_ORDER_NEW = ['engaged', 'moderately-engaged', 'disengaged']
     CLASS_ORDER_OLD = ['high', 'medium', 'low']
     
-    def __init__(self, csv_path, ground_truth_csv=None, output_dir='analysis'):
+    def __init__(self, csv_path, ground_truth_csv=None, output_dir='analysis',
+                 merge_fragments=False, min_track_frames=5, max_merge_dist=150):
         """Initialize analyzer"""
         self.csv_path = Path(csv_path)
         self.ground_truth_csv = ground_truth_csv
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Load data
         print(f"Loading data from {self.csv_path}...")
         self.df = pd.read_csv(csv_path)
+
+        # Merge ephemeral track fragments before analysis
+        if merge_fragments:
+            self.df, merge_map = ResultsAnalyzer.merge_track_fragments(
+                self.df, min_track_frames, max_merge_dist
+            )
+            if merge_map:
+                print(f"✓ Fragment merge: {len(merge_map)} ephemeral track(s) → "
+                      f"{len(set(merge_map.values()))} dominant track(s)")
+            else:
+                print("✓ Fragment merge: no ephemeral tracks found to merge")
         
         # Detect class convention
         classes = self.df['engagement_level'].unique()
@@ -220,6 +232,54 @@ class ResultsAnalyzer:
         
         return student_stats
     
+    @staticmethod
+    def merge_track_fragments(df, min_frames=5, max_merge_dist=150):
+        """
+        Remap ephemeral track IDs to the nearest dominant track.
+
+        Ephemeral tracks (< min_frames total appearances) whose mean centroid
+        is within max_merge_dist pixels of a dominant track centroid are
+        reassigned to that dominant track's ID.
+
+        Args:
+            df: pipeline output DataFrame — must have track_id, x1, y1, x2, y2
+            min_frames: tracks with fewer appearances are merge candidates
+            max_merge_dist: max centroid distance (px, original frame coords)
+
+        Returns:
+            (cleaned_df, merge_dict) where merge_dict maps old_id → new_id
+        """
+        df = df.copy()
+        track_counts = df.groupby('track_id')['frame'].count()
+        ephemeral = track_counts[track_counts < min_frames].index.tolist()
+        dominant = track_counts[track_counts >= min_frames].index.tolist()
+
+        if not ephemeral or not dominant:
+            return df, {}
+
+        centroids = df.groupby('track_id').apply(
+            lambda g: pd.Series({
+                'cx': ((g['x1'] + g['x2']) / 2).mean(),
+                'cy': ((g['y1'] + g['y2']) / 2).mean(),
+            })
+        )
+
+        dom_cx = centroids.loc[dominant, 'cx'].values
+        dom_cy = centroids.loc[dominant, 'cy'].values
+
+        merges = {}
+        for eid in ephemeral:
+            if eid not in centroids.index:
+                continue
+            ec = centroids.loc[eid]
+            dists = np.sqrt((dom_cx - ec['cx']) ** 2 + (dom_cy - ec['cy']) ** 2)
+            min_idx = int(np.argmin(dists))
+            if dists[min_idx] <= max_merge_dist:
+                merges[eid] = dominant[min_idx]
+
+        df['track_id'] = df['track_id'].replace(merges)
+        return df, merges
+
     def generate_full_report(self):
         """Generate complete analysis report"""
         print("\n" + "="*80)
@@ -244,11 +304,23 @@ def main():
     
     parser.add_argument('--csv', type=str, required=True, help='Path to pipeline output CSV')
     parser.add_argument('--output', type=str, default='analysis', help='Output directory')
-    
+    parser.add_argument('--merge-fragments', action='store_true',
+                        help='Merge ephemeral track IDs (<min-track-frames) into nearest dominant track')
+    parser.add_argument('--min-track-frames', type=int, default=5,
+                        help='Tracks with fewer appearances are merge candidates (default: 5)')
+    parser.add_argument('--max-merge-dist', type=int, default=150,
+                        help='Max centroid distance in pixels for a merge (default: 150)')
+
     args = parser.parse_args()
-    
+
     # Run analysis
-    analyzer = ResultsAnalyzer(csv_path=args.csv, output_dir=args.output)
+    analyzer = ResultsAnalyzer(
+        csv_path=args.csv,
+        output_dir=args.output,
+        merge_fragments=args.merge_fragments,
+        min_track_frames=args.min_track_frames,
+        max_merge_dist=args.max_merge_dist,
+    )
     analyzer.generate_full_report()
 
 

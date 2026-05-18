@@ -1,5 +1,5 @@
 """
-Frontend configuration.
+Frontend configuration — V10 schema (2-class engaged / not-engaged).
 """
 
 import os
@@ -19,28 +19,25 @@ ALLOWED_EXTENSIONS = ["mp4", "avi", "mov", "mkv"]
 # Polling interval for processing status (seconds)
 STATUS_POLL_INTERVAL = 3
 
-# Engagement level display config
+# ── Engagement display config (2-class) ──────────────────────────────────
+
 ENGAGEMENT_COLORS = {
-    "engaged": "#2ecc71",
-    "moderately-engaged": "#f39c12",
-    "disengaged": "#e74c3c",
+    "engaged":     "#2ecc71",
+    "not-engaged": "#e74c3c",
 }
 
 ENGAGEMENT_LABELS = {
-    "engaged": "Engaged",
-    "moderately-engaged": "Moderately Engaged",
-    "disengaged": "Disengaged",
+    "engaged":     "Engaged",
+    "not-engaged": "Not Engaged",
 }
 
 ENGAGEMENT_EMOJI = {
-    "engaged": "🟢",
-    "moderately-engaged": "🟡",
-    "disengaged": "🔴",
+    "engaged":     "🟢",
+    "not-engaged": "🔴",
 }
 
 # Engagement colors for charts (dark mode aware)
 ENGAGEMENT_CHART_COLORS = {
-    "engaged": "#34d399",
-    "moderately-engaged": "#fbbf24",
-    "disengaged": "#fb7185",
+    "engaged":     "#34d399",
+    "not-engaged": "#fb7185",
 }
