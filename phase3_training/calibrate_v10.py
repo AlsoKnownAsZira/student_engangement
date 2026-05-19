@@ -27,6 +27,7 @@ Jalankan:
 from pathlib import Path
 import argparse
 import numpy as np
+import matplotlib.pyplot as plt
 from ultralytics import YOLO
 from sklearn.metrics import (
     classification_report,
@@ -34,6 +35,7 @@ from sklearn.metrics import (
     f1_score,
     balanced_accuracy_score,
     roc_auc_score,
+    roc_curve,
 )
 
 CLASSES = ["Engaged", "NotEngaged"]
@@ -108,9 +110,10 @@ def report_at(y, p, thr, label):
 
 
 def main():
+    _root = Path(__file__).parent.parent
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="models/best_v10.pt")
-    ap.add_argument("--data", default="phase2_dataset/crops_v10")
+    ap.add_argument("--model", default=str(_root / "models" / "best_v10.pt"))
+    ap.add_argument("--data", default=str(_root / "phase2_dataset" / "crops_v10"))
     ap.add_argument("--calib-frac", type=float, default=0.20,
                     help="Fraksi test untuk calibration set (default 0.20)")
     ap.add_argument("--seed", type=int, default=42)
@@ -174,6 +177,32 @@ def main():
     else:
         print(f"\n  ✗ Target belum tercapai: {cal_acc:.4f} < 0.8000")
         print(f"    Coba seed lain atau --calib-frac 0.30")
+
+    # Generate ROC curve dari final test set
+    out_dir = Path("phase3_training/outputs")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _save_roc_curve(y_final, p_final, out_dir / "roc_v10.png")
+
+
+def _save_roc_curve(y_true, p_eng, out_path: Path) -> None:
+    """Plot dan simpan kurva ROC untuk final test set."""
+    fpr, tpr, _ = roc_curve(y_true == 0, p_eng)
+    auc = roc_auc_score(y_true == 0, p_eng)
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(fpr, tpr, color="#1f77b4", lw=2, label=f"ROC curve (AUC = {auc:.3f})")
+    ax.plot([0, 1], [0, 1], color="gray", lw=1, linestyle="--", label="Random classifier")
+    ax.set_xlim([-0.01, 1.01])
+    ax.set_ylim([-0.01, 1.05])
+    ax.set_xlabel("False Positive Rate", fontsize=11)
+    ax.set_ylabel("True Positive Rate", fontsize=11)
+    ax.set_title("ROC Curve — YOLOv11s-cls V10 (Final Test Set)", fontsize=12)
+    ax.legend(loc="lower right", fontsize=10)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"\nROC curve disimpan di: {out_path}")
 
 
 if __name__ == "__main__":
