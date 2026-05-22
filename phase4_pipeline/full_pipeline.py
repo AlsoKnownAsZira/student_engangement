@@ -34,6 +34,7 @@ sys.path.append('..')
 
 import cv2
 import numpy as np
+import time as _time
 from pathlib import Path
 import argparse
 import pandas as pd
@@ -148,13 +149,13 @@ class TwoStagePipeline:
         self.min_box_area_frac = min_box_area_frac
 
         # ── State ─────────────────────────────────────────────────────────
-        self.smoother = EngagementSmoother(window_size=smoothing_window)
         self.metrics = EngagementMetrics()
         self.tracking_data: list[dict] = []
+        self._timing: dict[str, list[float]] = {'detect': [], 'classify': []}
 
         self.logger.info(
             f"Pipeline ready (V10 2-stage) — stride={self.frame_stride}, "
-            f"thr={self.classify_threshold}, smooth={smoothing_window}"
+            f"thr={self.classify_threshold}"
         )
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -198,6 +199,7 @@ class TwoStagePipeline:
 
         self.metrics.reset()
         self.tracking_data = []
+        self._timing = {'detect': [], 'classify': []}
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -247,6 +249,7 @@ class TwoStagePipeline:
                     )
 
                 # ── Stage 1: detection + tracking ─────────────────────────
+                _t_det = _time.perf_counter()
                 det_results = self.detector.track(
                     source=frame,
                     tracker=self.tracker_config,
@@ -256,6 +259,7 @@ class TwoStagePipeline:
                     persist=True,
                     verbose=False,
                 )
+                self._timing['detect'].append((_time.perf_counter() - _t_det) * 1000)
                 det_result = det_results[0] if det_results else None
 
                 frame_scores: dict[int, tuple[float, str]] = {}
@@ -296,21 +300,19 @@ class TwoStagePipeline:
 
                 # ── Stage 2: classify all crops in one batched call ───────
                 if valid:
+                    _t_cls = _time.perf_counter()
                     probs_engaged = self._classify_crops([v['crop'] for v in valid])
+                    self._timing['classify'].append((_time.perf_counter() - _t_cls) * 1000)
                 else:
+                    self._timing['classify'].append(0.0)
                     probs_engaged = []
 
                 for v, p_eng in zip(valid, probs_engaged):
                     tid = v['track_id']
-                    raw_label = self._label_from_prob(p_eng)
-                    raw_conf = p_eng if raw_label == self.LEVEL_ENGAGED else (1.0 - p_eng)
+                    label = self._label_from_prob(p_eng)
+                    conf = p_eng if label == self.LEVEL_ENGAGED else (1.0 - p_eng)
 
-                    self.smoother.update(tid, raw_label, raw_conf)
-                    smoothed_label, smoothed_conf = self.smoother.get_smoothed(tid)
-                    if smoothed_label is None:
-                        smoothed_label, smoothed_conf = raw_label, raw_conf
-
-                    frame_scores[tid] = (smoothed_conf, smoothed_label)
+                    frame_scores[tid] = (conf, label)
 
                     self.tracking_data.append({
                         'frame': sampled_idx,
@@ -320,15 +322,11 @@ class TwoStagePipeline:
                         'x2': v['bbox'][2], 'y2': v['bbox'][3],
                         'detection_conf': v['det_conf'],
                         'prob_engaged': round(p_eng, 4),
-                        'raw_engagement': raw_label,
-                        'engagement_level': smoothed_label,
-                        'engagement_score': round(smoothed_conf, 4),
+                        'engagement_level': label,
+                        'engagement_score': round(conf, 4),
                     })
 
-                    self._draw_person(frame, tid, v['bbox'], smoothed_label, smoothed_conf, v['det_conf'])
-
-                # Cleanup smoother for IDs gone for too long
-                self.smoother.cleanup_stale(set(frame_scores.keys()))
+                    self._draw_person(frame, tid, v['bbox'], label, conf, v['det_conf'])
                 self.metrics.add_frame(frame_scores)
                 self._draw_summary(frame, frame_scores, sampled_idx)
 
@@ -439,7 +437,7 @@ class TwoStagePipeline:
         if not self.tracking_data:
             return None
         df = pd.DataFrame(self.tracking_data)
-        return {
+        stats: dict = {
             'total_frames': df['frame'].nunique(),
             'total_detections': len(df),
             'unique_students': df['track_id'].nunique(),
@@ -450,6 +448,15 @@ class TwoStagePipeline:
             'classify_threshold': self.classify_threshold,
             'frame_stride': self.frame_stride,
         }
+        n = len(self._timing['detect'])
+        if n > 0:
+            avg_det = sum(self._timing['detect']) / n
+            avg_cls = sum(self._timing['classify']) / n
+            avg_total = avg_det + avg_cls
+            stats['avg_detector_ms'] = round(avg_det, 2)
+            stats['avg_classifier_ms'] = round(avg_cls, 2)
+            stats['avg_pipeline_ms_per_frame'] = round(avg_total, 2)
+        return stats
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

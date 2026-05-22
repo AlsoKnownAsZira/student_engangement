@@ -89,6 +89,21 @@ if result.get("processing_time_seconds"):
 else:
     col4.metric(t("metric_detections"), metrics["total_detections"])
 
+# ── Inference speed metrics (shown only when timing data is available) ────
+
+det_ms = result.get("avg_detector_ms")
+cls_ms = result.get("avg_classifier_ms")
+pipe_ms = result.get("avg_pipeline_ms_per_frame")
+
+if pipe_ms is not None:
+    section_header(t("section_inference_speed"), "⚡")
+    icol1, icol2, icol3, icol4 = st.columns(4)
+    icol1.metric(t("metric_detector_ms"), f"{det_ms:.1f} ms" if det_ms is not None else "—")
+    icol2.metric(t("metric_classifier_ms"), f"{cls_ms:.1f} ms" if cls_ms is not None else "—")
+    icol3.metric(t("metric_pipeline_ms"), f"{pipe_ms:.1f} ms")
+    eff_fps = round(1000 / pipe_ms, 1) if pipe_ms > 0 else 0.0
+    icol4.metric(t("metric_eff_fps"), f"{eff_fps} fps")
+
 st.divider()
 
 # ── Engagement distribution overview ──────────────────────────────────────
@@ -167,8 +182,32 @@ with tab_bar:
     st.plotly_chart(fig_bar, use_container_width=True)
 
 with tab_stack:
-    fig_stack = vote_breakdown_stacked(students)
-    st.plotly_chart(fig_stack, use_container_width=True)
+    csv_url = result.get("csv_download_url")
+    if csv_url:
+        @st.cache_data(ttl=300, show_spinner=False)
+        def _load_csv(url: str) -> pd.DataFrame:
+            return pd.read_csv(url)
+
+        try:
+            df_csv = _load_csv(csv_url)
+            track_ids = sorted(df_csv["track_id"].unique().tolist())
+            selected = st.selectbox(
+                t("select_student"),
+                options=track_ids,
+                format_func=lambda x: f"Student {x}",
+            )
+            import os
+            _thr = float(os.environ.get("CLASSIFY_THRESHOLD", 0.170))
+            df_sel = df_csv[df_csv["track_id"] == selected]
+            from components.charts import student_frame_line
+            fig_line = student_frame_line(df_sel, selected, threshold=_thr)
+            st.plotly_chart(fig_line, use_container_width=True)
+        except Exception:
+            fig_stack = vote_breakdown_stacked(students)
+            st.plotly_chart(fig_stack, use_container_width=True)
+    else:
+        fig_stack = vote_breakdown_stacked(students)
+        st.plotly_chart(fig_stack, use_container_width=True)
 
 st.divider()
 

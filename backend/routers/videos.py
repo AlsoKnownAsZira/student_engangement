@@ -148,7 +148,7 @@ async def _process_video_task(
 
         # 2. Run pipeline (already async)
         temp_output = video_service.get_temp_output_path(uid)
-        df, h264_video_path, elapsed = await pipeline_manager.process(
+        df, h264_video_path, elapsed, timing = await pipeline_manager.process(
             temp_input, temp_output
         )
 
@@ -203,6 +203,9 @@ async def _process_video_task(
             processing_time_seconds=round(elapsed, 2),
             classify_threshold=settings.CLASSIFY_THRESHOLD,
             frame_stride=settings.FRAME_STRIDE,
+            avg_detector_ms=timing.get('avg_detector_ms'),
+            avg_classifier_ms=timing.get('avg_classifier_ms'),
+            avg_pipeline_ms_per_frame=timing.get('avg_pipeline_ms_per_frame'),
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
 

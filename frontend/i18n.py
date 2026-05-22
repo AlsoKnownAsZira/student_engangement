@@ -117,6 +117,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "tab_table": "📋 Tabel",
         "tab_bar": "📊 Diagram Batang",
         "tab_stack": "📈 Rincian Voting",
+        "select_student": "Pilih Siswa",
         "col_student_id": "ID Siswa",
         "col_engagement": "Tingkat Keterlibatan",
         "col_engaged_votes": "Frame Terlibat",
@@ -133,6 +134,11 @@ _STRINGS: dict[str, dict[str, str]] = {
         "no_csv": "CSV tidak tersedia.",
         "no_video": "Video beranotasi tidak tersedia.",
         "btn_back_history": "← Kembali ke Riwayat",
+        "section_inference_speed": "Kecepatan Inferensi Model",
+        "metric_detector_ms": "🔍 Detektor",
+        "metric_classifier_ms": "🏷️ Klasifikasi",
+        "metric_pipeline_ms": "⚡ Pipeline/Frame",
+        "metric_eff_fps": "🎥 FPS Efektif",
 
         # History page
         "history_title": "Riwayat Analisis",
@@ -268,6 +274,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "tab_table": "📋 Table",
         "tab_bar": "📊 Bar Chart",
         "tab_stack": "📈 Vote Breakdown",
+        "select_student": "Select Student",
         "col_student_id": "Student ID",
         "col_engagement": "Engagement Level",
         "col_engaged_votes": "Engaged Frames",
@@ -284,6 +291,11 @@ _STRINGS: dict[str, dict[str, str]] = {
         "no_csv": "CSV not available.",
         "no_video": "Annotated video not available.",
         "btn_back_history": "← Back to History",
+        "section_inference_speed": "Model Inference Speed",
+        "metric_detector_ms": "🔍 Detector",
+        "metric_classifier_ms": "🏷️ Classifier",
+        "metric_pipeline_ms": "⚡ Pipeline/Frame",
+        "metric_eff_fps": "🎥 Effective FPS",
 
         # History page
         "history_title": "Analysis History",

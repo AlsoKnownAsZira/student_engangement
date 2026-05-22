@@ -139,8 +139,7 @@ def student_engagement_bar(students: list[dict]) -> go.Figure:
 
 
 def vote_breakdown_stacked(students: list[dict]) -> go.Figure:
-    """Stacked horizontal bar showing vote counts per student (2-class)."""
-    c = get_chart_colors()
+    """Fallback stacked bar — used when CSV per-frame data is unavailable."""
     if not students:
         fig = go.Figure()
         _theme_layout(fig, title="No student data")
@@ -163,20 +162,95 @@ def vote_breakdown_stacked(students: list[dict]) -> go.Figure:
             hovertemplate=f"<b>{ENGAGEMENT_LABELS[level_key]}</b>: %{{x}} frames<extra></extra>",
         ))
 
-    _theme_layout(
-        fig,
-        title="Frame-level Vote Breakdown per Student",
-        height=max(300, len(df) * 40 + 100),
-        barmode="stack",
+    _theme_layout(fig, title="Vote Breakdown per Student", height=max(300, len(df) * 40 + 100), barmode="stack")
+    fig.update_layout(xaxis_title="Frames", margin=dict(t=60, b=40, l=100, r=20))
+    return fig
+
+
+def student_frame_line(df_student: pd.DataFrame, track_id: int, threshold: float = 0.170) -> go.Figure:
+    """
+    Zoned line chart: green zone (above threshold) = engaged, red zone (below) = not-engaged.
+    Line moves through zones — higher = more engaged, lower = more not-engaged.
+    """
+    if df_student.empty:
+        fig = go.Figure()
+        _theme_layout(fig, title="No data for selected student")
+        return fig
+
+    df = df_student.sort_values("frame").reset_index(drop=True)
+    y_vals = df["prob_engaged"] if "prob_engaged" in df.columns else df.get("engagement_score", pd.Series([0.5] * len(df)))
+    levels = df.get("engagement_level", pd.Series(["engaged"] * len(df)))
+    labels_text = [ENGAGEMENT_LABELS.get(lv, lv) for lv in levels]
+
+    x_min = int(df["frame"].min())
+    x_max = int(df["frame"].max())
+
+    fig = go.Figure()
+
+    # ── Zona hijau (engaged) ──────────────────────────────────────────────
+    fig.add_hrect(
+        y0=threshold, y1=1.0,
+        fillcolor=ENGAGEMENT_CHART_COLORS["engaged"],
+        opacity=0.08, layer="below", line_width=0,
     )
+    # ── Zona merah (not-engaged) ──────────────────────────────────────────
+    fig.add_hrect(
+        y0=0, y1=threshold,
+        fillcolor=ENGAGEMENT_CHART_COLORS["not-engaged"],
+        opacity=0.08, layer="below", line_width=0,
+    )
+
+    # ── Garis pembatas threshold ──────────────────────────────────────────
+    fig.add_hline(
+        y=threshold,
+        line=dict(color="rgba(255,255,255,0.3)", width=1.5, dash="dot"),
+    )
+
+    # ── Label zona (kanan chart) ──────────────────────────────────────────
+    fig.add_annotation(
+        x=x_max, y=(1.0 + threshold) / 2,
+        text=f"← {ENGAGEMENT_LABELS['engaged']}",
+        showarrow=False,
+        font=dict(color=ENGAGEMENT_CHART_COLORS["engaged"], size=11),
+        xanchor="right",
+    )
+    fig.add_annotation(
+        x=x_max, y=threshold / 2,
+        text=f"← {ENGAGEMENT_LABELS['not-engaged']}",
+        showarrow=False,
+        font=dict(color=ENGAGEMENT_CHART_COLORS["not-engaged"], size=11),
+        xanchor="right",
+    )
+
+    # ── Garis keterlibatan ────────────────────────────────────────────────
+    # Warna marker mengikuti posisi (di atas/bawah threshold), bukan smoothed label
+    raw_colors = [
+        ENGAGEMENT_CHART_COLORS["engaged"] if v >= threshold else ENGAGEMENT_CHART_COLORS["not-engaged"]
+        for v in y_vals
+    ]
+    raw_labels = [
+        ENGAGEMENT_LABELS["engaged"] if v >= threshold else ENGAGEMENT_LABELS["not-engaged"]
+        for v in y_vals
+    ]
+
+    fig.add_trace(go.Scatter(
+        x=df["frame"],
+        y=y_vals,
+        mode="lines+markers",
+        line=dict(color="rgba(200,200,200,0.8)", width=2),
+        marker=dict(color=raw_colors, size=7, line=dict(width=0)),
+        hovertemplate="Frame %{x}<br>%{customdata}<extra></extra>",
+        customdata=raw_labels,
+        showlegend=False,
+    ))
+
+    _theme_layout(fig, title=f"Student {track_id} — Keterlibatan per Frame", height=340)
     fig.update_layout(
-        xaxis_title="Number of Frames",
-        margin=dict(t=60, b=40, l=100, r=20),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom", y=1.02,
-            xanchor="right", x=1,
-        ),
+        xaxis_title="Frame",
+        yaxis=dict(range=[0, 1.05], tickvals=[0, threshold, 0.5, 1.0],
+                   ticktext=["0", f"batas\n({threshold})", "0.5", "1.0"]),
+        yaxis_title="Tingkat Keterlibatan",
+        margin=dict(t=60, b=50, l=80, r=20),
     )
     return fig
 
