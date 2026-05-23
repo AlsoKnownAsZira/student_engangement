@@ -97,6 +97,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "upload_success": "✅ **Video berhasil dikirim!**  \nPipeline analisis sedang berjalan di background.  \nID Analisis: `{}`",
         "upload_redirecting": "🔄 Anda akan diarahkan ke halaman Riwayat untuk memantau progress…",
 
+        # Processing tracker (on Upload page)
+        "processing_status_title": "Status Pemrosesan",
+        "processing_in_progress": "⏳ Sedang dianalisis… sudah berjalan **{}** — refresh otomatis tiap 10 detik",
+        "processing_done": "✅ **Analisis selesai!** Klik tombol di bawah untuk melihat hasilnya.",
+        "processing_failed": "❌ **Analisis gagal.**",
+        "btn_upload_another": "📤 Upload Video Lain",
+
         # Results page
         "results_no_analysis": "Tidak ada analisis terpilih",
         "results_no_analysis_sub": "Unggah video atau pilih analisis dari Riwayat untuk melihat hasil.",
@@ -253,6 +260,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "btn_check_history": "📋 Check History",
         "upload_success": "✅ **Video submitted!**  \nAnalysis pipeline is running in the background.  \nAnalysis ID: `{}`",
         "upload_redirecting": "🔄 You will be redirected to History to monitor progress…",
+
+        # Processing tracker (on Upload page)
+        "processing_status_title": "Processing Status",
+        "processing_in_progress": "⏳ Analyzing… elapsed **{}** — auto-refreshing every 10 seconds",
+        "processing_done": "✅ **Analysis complete!** Click below to view the results.",
+        "processing_failed": "❌ **Analysis failed.**",
+        "btn_upload_another": "📤 Upload Another Video",
 
         # Results page
         "results_no_analysis": "No analysis selected",
