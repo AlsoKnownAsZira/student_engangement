@@ -144,28 +144,8 @@ if tracking_id:
             st.rerun()
 
     else:
-        # Still processing — show simulated progress bar + auto-refresh
-        from datetime import datetime, timezone
-        try:
-            created_raw = status_data.get("created_at", "")
-            created_dt = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
-            elapsed_sec = int((datetime.now(timezone.utc) - created_dt).total_seconds())
-        except Exception:
-            elapsed_sec = 0
-
-        if elapsed_sec < 60:
-            elapsed_str = f"{elapsed_sec}s"
-        else:
-            elapsed_str = f"{elapsed_sec // 60}m {elapsed_sec % 60}s"
-
-        # Simulated progress: caps at 95% until actually done
-        # Assumes ~3 min average; slows down near the cap so it never freezes
-        ASSUMED_DURATION = 180
-        raw_pct = elapsed_sec / ASSUMED_DURATION
-        progress_val = min(0.95, raw_pct * (1 - raw_pct * 0.3))
-        progress_val = max(0.03, progress_val)
-
-        st.progress(progress_val, text=t("processing_in_progress", elapsed_str))
+        # Still processing — simple spinner + auto-refresh
+        st.info(t("processing_in_progress"))
         col_manual, col_hist = st.columns(2)
         with col_manual:
             if st.button(t("btn_refresh"), use_container_width=True, key="tracker_refresh"):

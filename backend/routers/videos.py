@@ -137,16 +137,7 @@ async def _process_video_task(
     try:
         await asyncio.to_thread(supabase_service.update_analysis, analysis_id, status="processing")
 
-        # 1. Upload input video to Supabase Storage
-        try:
-            await asyncio.to_thread(
-                supabase_service.upload_file, "input-videos", storage_input_path, temp_input
-            )
-        except Exception as e:
-            logger.warning(f"Input video Supabase upload failed (non-fatal): {e}")
-            # Non-fatal — pipeline can still run from temp file
-
-        # 2. Run pipeline (already async)
+        # 1. Run pipeline (already async)
         temp_output = video_service.get_temp_output_path(uid)
         df, h264_video_path, elapsed, timing = await pipeline_manager.process(
             temp_input, temp_output

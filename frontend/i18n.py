@@ -99,7 +99,7 @@ _STRINGS: dict[str, dict[str, str]] = {
 
         # Processing tracker (on Upload page)
         "processing_status_title": "Status Pemrosesan",
-        "processing_in_progress": "⏳ Sedang dianalisis… sudah berjalan **{}** — refresh otomatis tiap 10 detik",
+        "processing_in_progress": "⏳ Video sedang dianalisis di background. Halaman akan refresh otomatis setiap 10 detik…",
         "processing_done": "✅ **Analisis selesai!** Klik tombol di bawah untuk melihat hasilnya.",
         "processing_failed": "❌ **Analisis gagal.**",
         "btn_upload_another": "📤 Upload Video Lain",
@@ -263,7 +263,7 @@ _STRINGS: dict[str, dict[str, str]] = {
 
         # Processing tracker (on Upload page)
         "processing_status_title": "Processing Status",
-        "processing_in_progress": "⏳ Analyzing… elapsed **{}** — auto-refreshing every 10 seconds",
+        "processing_in_progress": "⏳ Video is being analyzed in the background. Auto-refreshing every 10 seconds…",
         "processing_done": "✅ **Analysis complete!** Click below to view the results.",
         "processing_failed": "❌ **Analysis failed.**",
         "btn_upload_another": "📤 Upload Another Video",
