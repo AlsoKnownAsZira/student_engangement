@@ -196,8 +196,7 @@ class TwoStagePipeline:
         """
         Process a video in two passes:
           Pass 1 — inference: detect + classify every sampled frame, fill tracking_data.
-          Pass 2 — render: re-read video and draw annotations with post-merged track IDs.
-        Two-pass ensures the video displays the same IDs shown in the analysis results.
+          Pass 2 — render: re-read video and draw annotations.
         """
         video_path = str(video_path)
         self.logger.info(f"Processing: {video_path}")
@@ -212,18 +211,14 @@ class TwoStagePipeline:
         )
         self.logger.info(f"Pass 1 done — sampled {n_sampled} frames")
 
-        # ── Post-processing ────────────────────────────────────────────────
         df = pd.DataFrame(self.tracking_data)
-        if len(df) > 0:
-            df = self._merge_tracks(df)
-            self.tracking_data = df.to_dict('records')
 
         if save_csv and output_path and len(df) > 0:
             csv_path = Path(output_path).with_suffix('.csv')
             df.to_csv(csv_path, index=False)
             self.logger.info(f"Saved CSV: {csv_path}")
 
-        # ── Pass 2: Render with merged IDs ─────────────────────────────────
+        # ── Pass 2: Render ─────────────────────────────────────────────────
         if output_path and len(df) > 0:
             self._render_pass(video_path, str(output_path), df, src_fps, width, height, n_sampled)
             self.logger.info(f"Pass 2 done — video written to {output_path}")
@@ -379,7 +374,7 @@ class TwoStagePipeline:
         Pass 2: Re-read source video and render annotations using merged track IDs.
         Produces a video where IDs are consistent with the analysis results.
         """
-        self.logger.info(f"Pass 2 — rendering {n_sampled} frames with merged IDs...")
+        self.logger.info(f"Pass 2 — rendering {n_sampled} frames...")
 
         # Build per-frame lookup from merged tracking data.
         # If the same merged ID appears twice in a frame (edge case from temporal tolerance),
@@ -506,93 +501,6 @@ class TwoStagePipeline:
                 cv2.putText(frame, line, (20, y),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             y += 35
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # Post-processing: track merging
-    # ═══════════════════════════════════════════════════════════════════════
-
-    def _merge_tracks(self, df: pd.DataFrame, dist_thresh: float = 80.0) -> pd.DataFrame:
-        """
-        Merge sequential track segments that appear at the same spatial position.
-
-        Students sit in fixed seats — if the tracker loses a student and then
-        re-detects them, BotSORT assigns a new ID even though it is the same
-        physical person.  This function uses the domain knowledge that
-        (a) seats are fixed and (b) two tracks at the same position cannot
-        overlap in time to merge those fragments into a single canonical ID.
-
-        Only merges tracks with NO temporal overlap (±2 frame tolerance).
-        Spatial threshold default 100 px works well for typical CCTV resolutions.
-        """
-        if df.empty or df['track_id'].nunique() <= 1:
-            return df
-
-        # Per-track: median centroid and temporal range
-        stats: dict[int, dict] = {}
-        for tid, g in df.groupby('track_id'):
-            stats[tid] = {
-                'cx': ((g['x1'] + g['x2']) / 2).median(),
-                'cy': ((g['y1'] + g['y2']) / 2).median(),
-                'fmin': int(g['frame'].min()),
-                'fmax': int(g['frame'].max()),
-            }
-
-        track_ids = sorted(stats.keys())
-
-        # Union-Find with path compression
-        parent = {tid: tid for tid in track_ids}
-
-        def find(x: int) -> int:
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-
-        def union(x: int, y: int) -> None:
-            rx, ry = find(x), find(y)
-            if rx != ry:
-                if rx < ry:
-                    parent[ry] = rx
-                else:
-                    parent[rx] = ry
-
-        TEMPORAL_TOL = 2  # frames — tolerate tiny overlaps from tracker jitter
-
-        for i, a in enumerate(track_ids):
-            for b in track_ids[i + 1:]:
-                sa, sb = stats[a], stats[b]
-                # Skip if they overlap in time (same person can't be in two places)
-                if sa['fmax'] - TEMPORAL_TOL >= sb['fmin'] and sb['fmax'] - TEMPORAL_TOL >= sa['fmin']:
-                    continue
-                # Merge if centroids are within dist_thresh pixels
-                dist = ((sa['cx'] - sb['cx']) ** 2 + (sa['cy'] - sb['cy']) ** 2) ** 0.5
-                if dist < dist_thresh:
-                    union(a, b)
-
-        canonical_map = {tid: find(tid) for tid in track_ids}
-        n_before = len(track_ids)
-        n_after  = len(set(canonical_map.values()))
-        self.logger.info(
-            f"Track merge: {n_before} segments -> {n_after} students "
-            f"(dist_thresh={dist_thresh:.0f}px)"
-        )
-
-        # Remap canonical IDs to sequential 1-based integers ordered by first appearance.
-        # This ensures the video shows clean IDs (1, 2, 3 ...) instead of raw tracker IDs.
-        first_frame: dict[int, int] = {}
-        for tid in track_ids:
-            canon = canonical_map[tid]
-            f = stats[tid]['fmin']
-            if canon not in first_frame or f < first_frame[canon]:
-                first_frame[canon] = f
-
-        sorted_canonicals = sorted(first_frame, key=first_frame.get)
-        sequential = {c: i + 1 for i, c in enumerate(sorted_canonicals)}
-        id_map = {tid: sequential[canonical_map[tid]] for tid in track_ids}
-
-        df = df.copy()
-        df['track_id'] = df['track_id'].map(id_map)
-        return df
 
     # ═══════════════════════════════════════════════════════════════════════
     # Stats
