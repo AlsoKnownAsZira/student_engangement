@@ -146,6 +146,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "metric_classifier_ms": "🏷️ Klasifikasi",
         "metric_pipeline_ms": "⚡ Pipeline/Frame",
         "metric_eff_fps": "🎥 FPS Efektif",
+        "help_students": "Jumlah track ID unik yang terdeteksi di video. Satu siswa dapat memiliki lebih dari satu ID jika tracker kehilangan dan mendeteksi ulang orang yang sama.",
+        "help_confidence": "Rata-rata keyakinan model classifier (best_v10.pt) per deteksi — seberapa yakin model terhadap label Terlibat/Tidak Terlibat yang diberikan.",
+        "help_pipeline_ms": "Total waktu inferensi per frame: waktu detektor + waktu classifier. Tidak termasuk rendering video.",
+        "help_eff_fps": "FPS efektif = 1000 ms ÷ Pipeline/Frame — artinya dalam 1 detik model mampu memproses sebanyak ini frame jika dipaksa terus-menerus. Namun pada praktiknya, pipeline hanya mengambil 1 dari setiap {} frame dari video sumber (frame stride), sehingga FPS yang benar-benar diproses jauh lebih kecil (misal: sumber 15 fps ÷ stride {} = {} fps aktual).",
 
         # History page
         "history_title": "Riwayat Analisis",
@@ -310,6 +314,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "metric_classifier_ms": "🏷️ Classifier",
         "metric_pipeline_ms": "⚡ Pipeline/Frame",
         "metric_eff_fps": "🎥 Effective FPS",
+        "help_students": "Number of unique track IDs detected in the video. One student may have more than one ID if the tracker loses and re-detects the same person.",
+        "help_confidence": "Average confidence of the classifier model (best_v10.pt) per detection — how certain the model is about the Engaged/Not-Engaged label assigned.",
+        "help_pipeline_ms": "Total inference time per frame: detector time + classifier time. Does not include video rendering.",
+        "help_eff_fps": "Effective FPS = 1000 ms ÷ Pipeline/Frame — meaning the model can process this many frames per second if running continuously. In practice, the pipeline only samples 1 out of every {} frames from the source video (frame stride), so the actual frames processed per second is much lower (e.g. 15 fps source ÷ stride {} = {} fps actual).",
 
         # History page
         "history_title": "Analysis History",

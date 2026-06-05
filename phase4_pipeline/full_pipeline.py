@@ -445,6 +445,7 @@ class TwoStagePipeline:
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
 
         label = f"ID:{track_id} | {level.upper()}"
+        label = f"{level.upper()}"
         label2 = f"Cls:{score:.2f}  Det:{det_conf:.2f}"
 
         font = cv2.FONT_HERSHEY_SIMPLEX
