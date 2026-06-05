@@ -130,8 +130,8 @@ def _per_student_majority_vote(df: pd.DataFrame) -> list[dict]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _class_summary(df: pd.DataFrame, students: list[dict]) -> dict:
-    total_students = len(students)
-    if total_students == 0:
+    unique_track_count = len(students)
+    if unique_track_count == 0:
         return {
             "total_students": 0,
             "total_frames": 0,
@@ -143,8 +143,15 @@ def _class_summary(df: pd.DataFrame, students: list[dict]) -> dict:
             },
         }
 
+    # Peak concurrent: max unique IDs visible in any single frame.
+    # Robust against ID fragmentation — a re-ID'd student gets a new ID over
+    # time but still occupies only one bbox per frame, so the per-frame count
+    # stays correct even when the cumulative unique-ID count is inflated.
+    peak_concurrent = int(df.groupby("frame")["track_id"].nunique().max())
+    total_students = peak_concurrent
+
     eng_count = sum(1 for s in students if s["final_engagement"] == "engaged")
-    ne_count  = total_students - eng_count
+    ne_count  = unique_track_count - eng_count
 
     return {
         "total_students":   total_students,
@@ -152,8 +159,8 @@ def _class_summary(df: pd.DataFrame, students: list[dict]) -> dict:
         "total_detections": len(df),
         "avg_engagement_score": round(float(df["engagement_score"].mean()), 4),
         "engagement_distribution": {
-            "engaged":     round(eng_count / total_students, 4),
-            "not_engaged": round(ne_count / total_students, 4),
+            "engaged":     round(eng_count / unique_track_count, 4),
+            "not_engaged": round(ne_count / unique_track_count, 4),
         },
     }
 
