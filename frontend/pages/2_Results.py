@@ -15,8 +15,7 @@ import pandas as pd
 
 from components.auth import require_auth, get_api_client, show_user_sidebar
 from components.charts import (
-    engagement_pie_chart, student_engagement_bar,
-    vote_breakdown_stacked, engagement_summary_metrics,
+    engagement_pie_chart, engagement_summary_metrics,
 )
 from components.video_player import show_video
 from components.styles import inject_global_css, hero_section, section_header, card, init_theme, _palette
@@ -158,58 +157,23 @@ st.divider()
 
 section_header(t("section_per_student"), "👥")
 
-tab_table, tab_bar, tab_stack = st.tabs([t("tab_table"), t("tab_bar"), t("tab_stack")])
-
-with tab_table:
-    if students:
-        df = pd.DataFrame(students)
-        df["final_engagement"] = df["final_engagement"].map(
-            lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {t('label_engaged') if x == 'engaged' else t('label_not_engaged')}"
-        )
-        df = df.rename(columns={
-            "track_id": t("col_student_id"),
-            "final_engagement": t("col_engagement"),
-            "engaged_votes": t("col_engaged_votes"),
-            "not_engaged_votes": t("col_not_engaged_votes"),
-            "total_frames": t("col_total_frames"),
-            "avg_confidence": t("col_avg_conf"),
-            "vote_percentage": t("col_majority_vote"),
-        })
-        st.dataframe(df, use_container_width=True, hide_index=True)
-    else:
-        st.info(t("no_student_data"))
-
-with tab_bar:
-    fig_bar = student_engagement_bar(students)
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-with tab_stack:
-    csv_url = result.get("csv_download_url")
-    if csv_url:
-        @st.cache_data(ttl=300, show_spinner=False)
-        def _load_csv(url: str) -> pd.DataFrame:
-            return pd.read_csv(url)
-
-        try:
-            df_csv = _load_csv(csv_url)
-            track_ids = sorted(df_csv["track_id"].unique().tolist())
-            selected = st.selectbox(
-                t("select_student"),
-                options=track_ids,
-                format_func=lambda x: f"Student {x}",
-            )
-            import os
-            _thr = float(os.environ.get("CLASSIFY_THRESHOLD", 0.170))
-            df_sel = df_csv[df_csv["track_id"] == selected]
-            from components.charts import student_frame_line
-            fig_line = student_frame_line(df_sel, selected, threshold=_thr)
-            st.plotly_chart(fig_line, use_container_width=True)
-        except Exception:
-            fig_stack = vote_breakdown_stacked(students)
-            st.plotly_chart(fig_stack, use_container_width=True)
-    else:
-        fig_stack = vote_breakdown_stacked(students)
-        st.plotly_chart(fig_stack, use_container_width=True)
+if students:
+    df = pd.DataFrame(students)
+    df["final_engagement"] = df["final_engagement"].map(
+        lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {t('label_engaged') if x == 'engaged' else t('label_not_engaged')}"
+    )
+    df = df.rename(columns={
+        "track_id": t("col_student_id"),
+        "final_engagement": t("col_engagement"),
+        "engaged_votes": t("col_engaged_votes"),
+        "not_engaged_votes": t("col_not_engaged_votes"),
+        "total_frames": t("col_total_frames"),
+        "avg_confidence": t("col_avg_conf"),
+        "vote_percentage": t("col_majority_vote"),
+    })
+    st.dataframe(df, use_container_width=True, hide_index=True)
+else:
+    st.info(t("no_student_data"))
 
 st.divider()
 
