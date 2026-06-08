@@ -96,14 +96,15 @@ pipe_ms = result.get("avg_pipeline_ms_per_frame")
 
 if pipe_ms is not None:
     section_header(t("section_inference_speed"), "⚡")
-    icol1, icol2, icol3, icol4 = st.columns(4)
+    # icol1, icol2, icol3, icol4 = st.columns(4)
+    icol1, icol2, icol3 = st.columns(3)
     frame_stride = result.get("frame_stride") or 5
     icol1.metric(t("metric_detector_ms"), f"{det_ms:.1f} ms" if det_ms is not None else "—")
     icol2.metric(t("metric_classifier_ms"), f"{cls_ms:.1f} ms" if cls_ms is not None else "—")
     icol3.metric(t("metric_pipeline_ms"), f"{pipe_ms:.1f} ms", help=t("help_pipeline_ms"))
     eff_fps = round(1000 / pipe_ms, 1) if pipe_ms > 0 else 0.0
     actual_fps = round(15 / frame_stride, 1)
-    icol4.metric(t("metric_eff_fps"), f"{eff_fps} fps", help=t("help_eff_fps", frame_stride, frame_stride, actual_fps))
+    # icol4.metric(t("metric_eff_fps"), f"{eff_fps} fps", help=t("help_eff_fps", frame_stride, frame_stride, actual_fps))
 
 st.divider()
 
