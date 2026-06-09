@@ -1,8 +1,10 @@
 # Classroom Engagement Analyzer (YOLOv11)
 
-> **Status Update (April 2026)**: 🏆 Model Final Tercapai! **V10 + Per-Session Calibration** berhasil menembus target ≥80% dengan akurasi test **82.21%** dan ROC-AUC **0.886** (terbaik dari semua versi). Aplikasi Website Terintegrasi Penuh (FastAPI + Streamlit).
+> **Status Update (Juni 2026)**: 🏆 Model Final Tercapai! **V10 + Per-Session Calibration** berhasil menembus target ≥80% dengan akurasi test **82.21%** dan ROC-AUC **0.886** (terbaik dari semua versi). Aplikasi Website Terintegrasi Penuh (FastAPI + Streamlit).
 
-Sistem deteksi cerdas untuk menganalisis dan melacak (tracking) tingkat keterlibatan siswa (*Student Engagement*) di ruang kelas secara *End-to-End* menggunakan model YOLOv11 secara lokal.
+Sistem deteksi cerdas untuk menganalisis tingkat keterlibatan (*Student Engagement*) di ruang kelas secara *End-to-End* menggunakan model YOLOv11 secara lokal.
+
+> **⚠️ Batasan Lingkup**: Sistem ini menghasilkan **analisis engagement tingkat kelas (class-level/general)** — persentase siswa engaged vs. not-engaged per sesi. BotSORT tracking digunakan semata-mata untuk mendeteksi dan membedakan posisi individu dalam satu frame, **bukan** untuk identifikasi atau pelacakan siswa secara personal antar sesi/video.
 
 ---
 
@@ -60,11 +62,11 @@ Model akhir: **YOLOv11s-cls** dilatih pada `crops_v10` (multi-session split, tan
 ### Arsitektur Pipeline Final
 
 ```
-Frame Kelas (Video)
+Frame Kelas (Video, sampled @ stride=5 → efektif 3fps)
       ↓
-[Model 1] YOLO Detect (deteksi posisi setiap siswa)
+[Model 1] YOLO Detect + BotSORT (deteksi posisi tiap orang, bukan identifikasi personal)
       ↓
-  Bounding Box tiap siswa
+  Bounding Box + Track ID (ID hanya valid dalam satu video, tidak bermakna antar sesi)
       ↓
   Crop bbox dari frame
       ↓
@@ -74,7 +76,9 @@ Frame Kelas (Video)
       ↓
   Threshold per-sesi (default: 0.170)
       ↓
-  Output: Engaged / NotEngaged
+  Output per-orang: Engaged / NotEngaged
+      ↓
+  Agregasi kelas: % Engaged / % NotEngaged (general engagement)
 ```
 
 ---
@@ -151,10 +155,10 @@ Akses di browser: **`http://localhost:8501`**
 
 ## 🛣️ Rencana Pengembangan (*Future Works*)
 
-- **Frame Skipping (3 FPS)**: Perilaku engagement berjalan lambat — inferensi 15 FPS boros tanpa manfaat akurasi. Menurunkan ke 3 FPS memangkas beban GPU ~5x.
 - **Multi-class Temporal Modeling**: Gunakan urutan frame (LSTM/Transformer) untuk memodelkan engagement berbasis waktu, bukan per-frame.
 - **Auto-Calibration UI**: Tambahkan fitur upload sampel berlabel di frontend untuk kalibrasi threshold otomatis per sesi baru.
+- **Per-Student Identity Tracking**: Integrasi face recognition atau re-ID model untuk pelacakan identitas siswa lintas sesi (di luar scope skripsi saat ini).
 
 ---
 
-**Status Terakhir**: Model Final (V10 Calibrated) Operasional. Target Skripsi ≥80% Tercapai. 🎓🏁
+**Status Terakhir (Juni 2026)**: Model Final (V10 Calibrated) Operasional. Target Skripsi ≥80% Tercapai. Scope: General class-level engagement analysis. 🎓🏁

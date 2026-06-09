@@ -107,7 +107,7 @@ person-tracking-engagement/
 .\start.ps1
 
 # Run pipeline directly (2-stage)
-python phase4_pipeline/full_pipeline.py --source <video_path>
+python phase4_pipeline/full_pipeline.py --video <video_path> --output <output_path>
 
 # Per-session threshold calibration
 python phase3_training/calibrate_v10.py
@@ -138,7 +138,7 @@ SUPABASE_KEY=...
 BACKEND_URL=http://localhost:8000
 ```
 
-## Current Status (May 2026)
+## Current Status (Juni 2026)
 - ✅ Full-stack app stable and operational (Deploy v5)
 - ✅ 2-stage pipeline: detect (best_v5.pt) + classify (best_v10.pt)
 - ✅ Target ≥80% accuracy TERCAPAI — V10 calibrated = **82.21%**
@@ -158,3 +158,9 @@ BACKEND_URL=http://localhost:8000
 - DB schema is 2-class: `engaged_votes` + `not_engaged_votes` (no `moderate_votes`)
 - For training context (V1–V10 history, dataset decisions): see `phase3_training/rangkuman_training.md`
 - For deployment pipeline history (Deploy v1–v5): see `phase4_pipeline/rangkuman_deployment.md`
+
+## Scope & Limitations
+- **General engagement only** — sistem menghasilkan persentase engagement tingkat kelas (% Engaged / % NotEngaged), BUKAN identifikasi atau pelacakan per-siswa
+- BotSORT tracking digunakan hanya untuk membedakan individu dalam satu frame; track ID tidak bermakna secara personal dan tidak persisten antar video
+- Track ID bisa mulai dari angka besar (300, 1000+) karena `PipelineManager` adalah singleton — BotSORT internal counter TIDAK di-reset antar video job; ini by design dan tidak mempengaruhi hasil analisis
+- Tidak ada fitur re-identification lintas sesi — setiap video dianalisis independen
