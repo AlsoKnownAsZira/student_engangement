@@ -34,6 +34,7 @@ sys.path.append('..')
 
 import cv2
 import numpy as np
+import time as _time
 from pathlib import Path
 import argparse
 import pandas as pd
@@ -148,13 +149,13 @@ class TwoStagePipeline:
         self.min_box_area_frac = min_box_area_frac
 
         # ── State ─────────────────────────────────────────────────────────
-        self.smoother = EngagementSmoother(window_size=smoothing_window)
         self.metrics = EngagementMetrics()
         self.tracking_data: list[dict] = []
+        self._timing: dict[str, list[float]] = {'detect': [], 'classify': []}
 
         self.logger.info(
             f"Pipeline ready (V10 2-stage) — stride={self.frame_stride}, "
-            f"thr={self.classify_threshold}, smooth={smoothing_window}"
+            f"thr={self.classify_threshold}"
         )
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -192,39 +193,64 @@ class TwoStagePipeline:
         show_preview: bool = False,
         limit_frames: int | None = None,
     ) -> pd.DataFrame:
-        """Process a video and return per-detection DataFrame."""
+        """
+        Process a video in two passes:
+          Pass 1 — inference: detect + classify every sampled frame, fill tracking_data.
+          Pass 2 — render: re-read video and draw annotations.
+        """
         video_path = str(video_path)
         self.logger.info(f"Processing: {video_path}")
 
         self.metrics.reset()
         self.tracking_data = []
+        self._timing = {'detect': [], 'classify': []}
 
+        # ── Pass 1: Inference ──────────────────────────────────────────────
+        src_fps, width, height, n_sampled = self._inference_pass(
+            video_path, show_preview, limit_frames
+        )
+        self.logger.info(f"Pass 1 done — sampled {n_sampled} frames")
+
+        df = pd.DataFrame(self.tracking_data)
+
+        if save_csv and output_path and len(df) > 0:
+            csv_path = Path(output_path).with_suffix('.csv')
+            df.to_csv(csv_path, index=False)
+            self.logger.info(f"Saved CSV: {csv_path}")
+
+        # ── Pass 2: Render ─────────────────────────────────────────────────
+        if output_path and len(df) > 0:
+            self._render_pass(video_path, str(output_path), df, src_fps, width, height, n_sampled)
+            self.logger.info(f"Pass 2 done — video written to {output_path}")
+
+        return df
+
+    def _inference_pass(
+        self,
+        video_path: str,
+        show_preview: bool,
+        limit_frames: int | None,
+    ) -> tuple[float, int, int, int]:
+        """
+        Pass 1: Run detection + classification on sampled frames.
+        Fills self.tracking_data. Does NOT write video.
+        Returns (src_fps, width, height, n_sampled).
+        """
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise IOError(f"Cannot open video: {video_path}")
 
         src_fps = cap.get(cv2.CAP_PROP_FPS) or 15
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        out_fps = max(1.0, src_fps / self.frame_stride)
+        width   = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height  = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total   = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.logger.info(
             f"Source: {width}x{height} @ {src_fps:.1f}fps, {total} frames | "
-            f"Output: {out_fps:.1f}fps (stride={self.frame_stride})"
+            f"Effective: {max(1.0, src_fps / self.frame_stride):.1f}fps (stride={self.frame_stride})"
         )
 
-        writer = None
-        if output_path:
-            writer = cv2.VideoWriter(
-                str(output_path),
-                cv2.VideoWriter_fourcc(*'mp4v'),
-                out_fps,
-                (width, height),
-            )
-            self.logger.info(f"Output: {output_path}")
-
-        src_idx = 0          # raw frame index in source video
-        sampled_idx = 0      # index of frames actually inferenced
+        src_idx     = 0
+        sampled_idx = 0
 
         try:
             while True:
@@ -232,7 +258,6 @@ class TwoStagePipeline:
                 if not ret:
                     break
 
-                # Skip frames per stride
                 if src_idx % self.frame_stride != 0:
                     src_idx += 1
                     continue
@@ -242,11 +267,10 @@ class TwoStagePipeline:
                     break
 
                 if sampled_idx % 30 == 0:
-                    self.logger.info(
-                        f"Frame {src_idx}/{total} (sampled #{sampled_idx})..."
-                    )
+                    self.logger.info(f"Frame {src_idx}/{total} (sampled #{sampled_idx})...")
 
-                # ── Stage 1: detection + tracking ─────────────────────────
+                # Stage 1: detect + track
+                _t_det = _time.perf_counter()
                 det_results = self.detector.track(
                     source=frame,
                     tracker=self.tracker_config,
@@ -256,62 +280,49 @@ class TwoStagePipeline:
                     persist=True,
                     verbose=False,
                 )
+                self._timing['detect'].append((_time.perf_counter() - _t_det) * 1000)
                 det_result = det_results[0] if det_results else None
 
                 frame_scores: dict[int, tuple[float, str]] = {}
                 untracked_counter = 99000
                 frame_area = frame.shape[0] * frame.shape[1]
 
-                # Collect valid bboxes + crops
                 valid: list[dict] = []
                 if det_result is not None and det_result.boxes is not None:
                     for box in det_result.boxes:
-                        if box.id is not None:
-                            tid = int(box.id[0])
-                        else:
-                            tid = untracked_counter
-                            untracked_counter += 1
-
+                        tid = int(box.id[0]) if box.id is not None else (untracked_counter := untracked_counter + 1)
                         xyxy = box.xyxy[0].cpu().numpy()
                         x1, y1, x2, y2 = map(int, xyxy)
                         det_conf = float(box.conf[0])
 
-                        # Filter by min area
                         if (x2 - x1) * (y2 - y1) / frame_area < self.min_box_area_frac:
                             continue
-
-                        # Sanity-clip crop
                         cx1 = max(0, x1); cy1 = max(0, y1)
-                        cx2 = min(frame.shape[1], x2); cy2 = min(frame.shape[0], y2)
+                        cx2 = min(width, x2); cy2 = min(height, y2)
                         if cx2 <= cx1 or cy2 <= cy1:
                             continue
 
-                        crop = frame[cy1:cy2, cx1:cx2]
                         valid.append({
                             'track_id': tid,
                             'bbox': (x1, y1, x2, y2),
                             'det_conf': det_conf,
-                            'crop': crop,
+                            'crop': frame[cy1:cy2, cx1:cx2],
                         })
 
-                # ── Stage 2: classify all crops in one batched call ───────
+                # Stage 2: classify
                 if valid:
+                    _t_cls = _time.perf_counter()
                     probs_engaged = self._classify_crops([v['crop'] for v in valid])
+                    self._timing['classify'].append((_time.perf_counter() - _t_cls) * 1000)
                 else:
+                    self._timing['classify'].append(0.0)
                     probs_engaged = []
 
                 for v, p_eng in zip(valid, probs_engaged):
-                    tid = v['track_id']
-                    raw_label = self._label_from_prob(p_eng)
-                    raw_conf = p_eng if raw_label == self.LEVEL_ENGAGED else (1.0 - p_eng)
-
-                    self.smoother.update(tid, raw_label, raw_conf)
-                    smoothed_label, smoothed_conf = self.smoother.get_smoothed(tid)
-                    if smoothed_label is None:
-                        smoothed_label, smoothed_conf = raw_label, raw_conf
-
-                    frame_scores[tid] = (smoothed_conf, smoothed_label)
-
+                    tid   = v['track_id']
+                    label = self._label_from_prob(p_eng)
+                    conf  = p_eng if label == self.LEVEL_ENGAGED else (1.0 - p_eng)
+                    frame_scores[tid] = (conf, label)
                     self.tracking_data.append({
                         'frame': sampled_idx,
                         'source_frame': src_idx,
@@ -320,48 +331,108 @@ class TwoStagePipeline:
                         'x2': v['bbox'][2], 'y2': v['bbox'][3],
                         'detection_conf': v['det_conf'],
                         'prob_engaged': round(p_eng, 4),
-                        'raw_engagement': raw_label,
-                        'engagement_level': smoothed_label,
-                        'engagement_score': round(smoothed_conf, 4),
+                        'engagement_level': label,
+                        'engagement_score': round(conf, 4),
                     })
 
-                    self._draw_person(frame, tid, v['bbox'], smoothed_label, smoothed_conf, v['det_conf'])
-
-                # Cleanup smoother for IDs gone for too long
-                self.smoother.cleanup_stale(set(frame_scores.keys()))
                 self.metrics.add_frame(frame_scores)
-                self._draw_summary(frame, frame_scores, sampled_idx)
 
                 if show_preview:
-                    cv2.imshow('Pipeline V10 Preview', frame)
+                    preview = frame.copy()
+                    for v, p_eng in zip(valid, probs_engaged):
+                        tid   = v['track_id']
+                        label = self._label_from_prob(p_eng)
+                        conf  = p_eng if label == self.LEVEL_ENGAGED else (1.0 - p_eng)
+                        self._draw_person(preview, tid, v['bbox'], label, conf, v['det_conf'])
+                    self._draw_summary(preview, frame_scores, sampled_idx)
+                    cv2.imshow('Pipeline V10 — Pass 1 (inference)', preview)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         self.logger.info("Preview stopped by user")
                         break
-
-                if writer:
-                    writer.write(frame)
 
                 sampled_idx += 1
                 src_idx += 1
 
         finally:
             cap.release()
-            if writer:
-                writer.release()
             if show_preview:
                 cv2.destroyAllWindows()
 
-        self.logger.info(
-            f"Done. Source frames read: {src_idx}, inferenced: {sampled_idx}"
+        return src_fps, width, height, sampled_idx
+
+    def _render_pass(
+        self,
+        video_path: str,
+        output_path: str,
+        df: pd.DataFrame,
+        src_fps: float,
+        width: int,
+        height: int,
+        n_sampled: int,
+    ) -> None:
+        """
+        Pass 2: Re-read source video and render annotations using merged track IDs.
+        Produces a video where IDs are consistent with the analysis results.
+        """
+        self.logger.info(f"Pass 2 — rendering {n_sampled} frames...")
+
+        # Build per-frame lookup from merged tracking data.
+        # If the same merged ID appears twice in a frame (edge case from temporal tolerance),
+        # keep only the detection with the highest engagement_score.
+        frame_lookup: dict[int, dict[int, dict]] = {}
+        for row in df.itertuples(index=False):
+            fid = int(row.frame)
+            tid = int(row.track_id)
+            det = {
+                'track_id': tid,
+                'bbox':     (int(row.x1), int(row.y1), int(row.x2), int(row.y2)),
+                'label':    row.engagement_level,
+                'score':    float(row.engagement_score),
+                'det_conf': float(row.detection_conf),
+            }
+            if fid not in frame_lookup or tid not in frame_lookup[fid]:
+                frame_lookup.setdefault(fid, {})[tid] = det
+            elif det['score'] > frame_lookup[fid][tid]['score']:
+                frame_lookup[fid][tid] = det
+
+        out_fps = max(1.0, src_fps / self.frame_stride)
+        writer  = cv2.VideoWriter(
+            output_path,
+            cv2.VideoWriter_fourcc(*'mp4v'),
+            out_fps,
+            (width, height),
         )
 
-        df = pd.DataFrame(self.tracking_data)
-        if save_csv and output_path and len(df) > 0:
-            csv_path = Path(output_path).with_suffix('.csv')
-            df.to_csv(csv_path, index=False)
-            self.logger.info(f"Saved CSV: {csv_path}")
+        cap = cv2.VideoCapture(video_path)
+        src_idx     = 0
+        sampled_idx = 0
 
-        return df
+        try:
+            while sampled_idx < n_sampled:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                if src_idx % self.frame_stride != 0:
+                    src_idx += 1
+                    continue
+
+                detections  = frame_lookup.get(sampled_idx, {})
+                frame_scores: dict[int, tuple[float, str]] = {}
+
+                for d in detections.values():
+                    self._draw_person(frame, d['track_id'], d['bbox'], d['label'], d['score'], d['det_conf'])
+                    frame_scores[d['track_id']] = (d['score'], d['label'])
+
+                self._draw_summary(frame, frame_scores, sampled_idx)
+                writer.write(frame)
+
+                sampled_idx += 1
+                src_idx += 1
+
+        finally:
+            cap.release()
+            writer.release()
 
     # ═══════════════════════════════════════════════════════════════════════
     # Drawing
@@ -439,7 +510,7 @@ class TwoStagePipeline:
         if not self.tracking_data:
             return None
         df = pd.DataFrame(self.tracking_data)
-        return {
+        stats: dict = {
             'total_frames': df['frame'].nunique(),
             'total_detections': len(df),
             'unique_students': df['track_id'].nunique(),
@@ -450,6 +521,15 @@ class TwoStagePipeline:
             'classify_threshold': self.classify_threshold,
             'frame_stride': self.frame_stride,
         }
+        n = len(self._timing['detect'])
+        if n > 0:
+            avg_det = sum(self._timing['detect']) / n
+            avg_cls = sum(self._timing['classify']) / n
+            avg_total = avg_det + avg_cls
+            stats['avg_detector_ms'] = round(avg_det, 2)
+            stats['avg_classifier_ms'] = round(avg_cls, 2)
+            stats['avg_pipeline_ms_per_frame'] = round(avg_total, 2)
+        return stats
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

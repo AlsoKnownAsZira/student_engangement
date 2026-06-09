@@ -15,8 +15,7 @@ import pandas as pd
 
 from components.auth import require_auth, get_api_client, show_user_sidebar
 from components.charts import (
-    engagement_pie_chart, student_engagement_bar,
-    vote_breakdown_stacked, engagement_summary_metrics,
+    engagement_pie_chart, engagement_summary_metrics,
 )
 from components.video_player import show_video
 from components.styles import inject_global_css, hero_section, section_header, card, init_theme, _palette
@@ -81,13 +80,31 @@ hero_section(
 # ── Header metrics ────────────────────────────────────────────────────────
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric(t("metric_students"), metrics["total_students"])
+col1.metric(t("metric_students"), metrics["total_students"], help=t("help_students"))
 col2.metric(t("metric_frames"), metrics["total_frames"])
-col3.metric(t("metric_confidence"), f"{metrics['avg_score']}%")
+col3.metric(t("metric_confidence"), f"{metrics['avg_score']}%", help=t("help_confidence"))
 if result.get("processing_time_seconds"):
     col4.metric(t("metric_time"), f"{result['processing_time_seconds']:.1f}s")
 else:
     col4.metric(t("metric_detections"), metrics["total_detections"])
+
+# ── Inference speed metrics (shown only when timing data is available) ────
+
+det_ms = result.get("avg_detector_ms")
+cls_ms = result.get("avg_classifier_ms")
+pipe_ms = result.get("avg_pipeline_ms_per_frame")
+
+if pipe_ms is not None:
+    section_header(t("section_inference_speed"), "⚡")
+    # icol1, icol2, icol3, icol4 = st.columns(4)
+    icol1, icol2, icol3 = st.columns(3)
+    frame_stride = result.get("frame_stride") or 5
+    icol1.metric(t("metric_detector_ms"), f"{det_ms:.1f} ms" if det_ms is not None else "—")
+    icol2.metric(t("metric_classifier_ms"), f"{cls_ms:.1f} ms" if cls_ms is not None else "—")
+    icol3.metric(t("metric_pipeline_ms"), f"{pipe_ms:.1f} ms", help=t("help_pipeline_ms"))
+    eff_fps = round(1000 / pipe_ms, 1) if pipe_ms > 0 else 0.0
+    actual_fps = round(15 / frame_stride, 1)
+    # icol4.metric(t("metric_eff_fps"), f"{eff_fps} fps", help=t("help_eff_fps", frame_stride, frame_stride, actual_fps))
 
 st.divider()
 
@@ -141,34 +158,23 @@ st.divider()
 
 section_header(t("section_per_student"), "👥")
 
-tab_table, tab_bar, tab_stack = st.tabs([t("tab_table"), t("tab_bar"), t("tab_stack")])
-
-with tab_table:
-    if students:
-        df = pd.DataFrame(students)
-        df["final_engagement"] = df["final_engagement"].map(
-            lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {t('label_engaged') if x == 'engaged' else t('label_not_engaged')}"
-        )
-        df = df.rename(columns={
-            "track_id": t("col_student_id"),
-            "final_engagement": t("col_engagement"),
-            "engaged_votes": t("col_engaged_votes"),
-            "not_engaged_votes": t("col_not_engaged_votes"),
-            "total_frames": t("col_total_frames"),
-            "avg_confidence": t("col_avg_conf"),
-            "vote_percentage": t("col_majority_vote"),
-        })
-        st.dataframe(df, use_container_width=True, hide_index=True)
-    else:
-        st.info(t("no_student_data"))
-
-with tab_bar:
-    fig_bar = student_engagement_bar(students)
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-with tab_stack:
-    fig_stack = vote_breakdown_stacked(students)
-    st.plotly_chart(fig_stack, use_container_width=True)
+if students:
+    df = pd.DataFrame(students)
+    df["final_engagement"] = df["final_engagement"].map(
+        lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {t('label_engaged') if x == 'engaged' else t('label_not_engaged')}"
+    )
+    df = df.rename(columns={
+        "track_id": t("col_student_id"),
+        "final_engagement": t("col_engagement"),
+        "engaged_votes": t("col_engaged_votes"),
+        "not_engaged_votes": t("col_not_engaged_votes"),
+        "total_frames": t("col_total_frames"),
+        "avg_confidence": t("col_avg_conf"),
+        "vote_percentage": t("col_majority_vote"),
+    })
+    st.dataframe(df, use_container_width=True, hide_index=True)
+else:
+    st.info(t("no_student_data"))
 
 st.divider()
 

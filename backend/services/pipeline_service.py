@@ -81,7 +81,7 @@ class PipelineManager:
         self,
         input_video: str | Path,
         output_video: str | Path,
-    ) -> tuple[pd.DataFrame, str, float]:
+    ) -> tuple[pd.DataFrame, str, float, dict]:
         """
         Run the V10 detection + tracking + classification pipeline.
 
@@ -90,6 +90,7 @@ class PipelineManager:
         df          : pd.DataFrame — raw per-frame tracking data
         final_video : str          — path to browser-playable (H.264) video
         elapsed     : float        — wall-clock seconds
+        timing      : dict         — avg_detector_ms, avg_classifier_ms, avg_pipeline_ms_per_frame
         """
         if not self.is_ready():
             raise RuntimeError("Models not loaded yet — call load_models() first.")
@@ -103,7 +104,7 @@ class PipelineManager:
 
             import asyncio
             loop = asyncio.get_event_loop()
-            df = await loop.run_in_executor(
+            df, timing = await loop.run_in_executor(
                 None,
                 self._run_pipeline,
                 input_video,
@@ -113,9 +114,9 @@ class PipelineManager:
             h264_path = self._reencode_h264(output_video)
 
             elapsed = time.time() - start
-            return df, h264_path, elapsed
+            return df, h264_path, elapsed, timing
 
-    def _run_pipeline(self, input_path: str, output_path: str) -> pd.DataFrame:
+    def _run_pipeline(self, input_path: str, output_path: str) -> tuple[pd.DataFrame, dict]:
         """Blocking call — executed inside a thread pool."""
         df = self._pipeline.process_video(
             video_path=input_path,
@@ -123,7 +124,13 @@ class PipelineManager:
             save_csv=False,       # videos.py saves CSV from df itself
             show_preview=False,
         )
-        return df
+        stats = self._pipeline.get_statistics() or {}
+        timing = {
+            'avg_detector_ms': stats.get('avg_detector_ms'),
+            'avg_classifier_ms': stats.get('avg_classifier_ms'),
+            'avg_pipeline_ms_per_frame': stats.get('avg_pipeline_ms_per_frame'),
+        }
+        return df, timing
 
     # ── H.264 re-encoding ─────────────────────────────────────────────────
 

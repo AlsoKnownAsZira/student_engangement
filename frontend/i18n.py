@@ -97,6 +97,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "upload_success": "✅ **Video berhasil dikirim!**  \nPipeline analisis sedang berjalan di background.  \nID Analisis: `{}`",
         "upload_redirecting": "🔄 Anda akan diarahkan ke halaman Riwayat untuk memantau progress…",
 
+        # Processing tracker (on Upload page)
+        "processing_status_title": "Status Pemrosesan",
+        "processing_in_progress": "⏳ Video sedang dianalisis di background. Halaman akan refresh otomatis setiap 10 detik…",
+        "processing_done": "✅ **Analisis selesai!** Klik tombol di bawah untuk melihat hasilnya.",
+        "processing_failed": "❌ **Analisis gagal.**",
+        "btn_upload_another": "📤 Upload Video Lain",
+
         # Results page
         "results_no_analysis": "Tidak ada analisis terpilih",
         "results_no_analysis_sub": "Unggah video atau pilih analisis dari Riwayat untuk melihat hasil.",
@@ -117,6 +124,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "tab_table": "📋 Tabel",
         "tab_bar": "📊 Diagram Batang",
         "tab_stack": "📈 Rincian Voting",
+        "select_student": "Pilih Siswa",
         "col_student_id": "ID Siswa",
         "col_engagement": "Tingkat Keterlibatan",
         "col_engaged_votes": "Frame Terlibat",
@@ -133,6 +141,15 @@ _STRINGS: dict[str, dict[str, str]] = {
         "no_csv": "CSV tidak tersedia.",
         "no_video": "Video beranotasi tidak tersedia.",
         "btn_back_history": "← Kembali ke Riwayat",
+        "section_inference_speed": "Kecepatan Inferensi Model",
+        "metric_detector_ms": "🔍 Detektor",
+        "metric_classifier_ms": "🏷️ Klasifikasi",
+        "metric_pipeline_ms": "⚡ Pipeline/Frame",
+        "metric_eff_fps": "🎥 FPS Efektif",
+        "help_students": "Jumlah track ID unik yang terdeteksi di video. Satu siswa dapat memiliki lebih dari satu ID jika tracker kehilangan dan mendeteksi ulang orang yang sama.",
+        "help_confidence": "Rata-rata keyakinan model classifier (best_v10.pt) per deteksi — seberapa yakin model terhadap label Terlibat/Tidak Terlibat yang diberikan.",
+        "help_pipeline_ms": "Total waktu inferensi per frame: waktu detektor + waktu classifier. Tidak termasuk rendering video.",
+        "help_eff_fps": "FPS efektif = 1000 ms ÷ Pipeline/Frame — artinya dalam 1 detik model mampu memproses sebanyak ini frame jika dipaksa terus-menerus. Namun pada praktiknya, pipeline hanya mengambil 1 dari setiap {} frame dari video sumber (frame stride), sehingga FPS yang benar-benar diproses jauh lebih kecil (misal: sumber 15 fps ÷ stride {} = {} fps aktual).",
 
         # History page
         "history_title": "Riwayat Analisis",
@@ -248,6 +265,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "upload_success": "✅ **Video submitted!**  \nAnalysis pipeline is running in the background.  \nAnalysis ID: `{}`",
         "upload_redirecting": "🔄 You will be redirected to History to monitor progress…",
 
+        # Processing tracker (on Upload page)
+        "processing_status_title": "Processing Status",
+        "processing_in_progress": "⏳ Video is being analyzed in the background. Auto-refreshing every 10 seconds…",
+        "processing_done": "✅ **Analysis complete!** Click below to view the results.",
+        "processing_failed": "❌ **Analysis failed.**",
+        "btn_upload_another": "📤 Upload Another Video",
+
         # Results page
         "results_no_analysis": "No analysis selected",
         "results_no_analysis_sub": "Upload a video or select an analysis from History to view results.",
@@ -268,6 +292,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "tab_table": "📋 Table",
         "tab_bar": "📊 Bar Chart",
         "tab_stack": "📈 Vote Breakdown",
+        "select_student": "Select Student",
         "col_student_id": "Student ID",
         "col_engagement": "Engagement Level",
         "col_engaged_votes": "Engaged Frames",
@@ -284,6 +309,15 @@ _STRINGS: dict[str, dict[str, str]] = {
         "no_csv": "CSV not available.",
         "no_video": "Annotated video not available.",
         "btn_back_history": "← Back to History",
+        "section_inference_speed": "Model Inference Speed",
+        "metric_detector_ms": "🔍 Detector",
+        "metric_classifier_ms": "🏷️ Classifier",
+        "metric_pipeline_ms": "⚡ Pipeline/Frame",
+        "metric_eff_fps": "🎥 Effective FPS",
+        "help_students": "Number of unique track IDs detected in the video. One student may have more than one ID if the tracker loses and re-detects the same person.",
+        "help_confidence": "Average confidence of the classifier model (best_v10.pt) per detection — how certain the model is about the Engaged/Not-Engaged label assigned.",
+        "help_pipeline_ms": "Total inference time per frame: detector time + classifier time. Does not include video rendering.",
+        "help_eff_fps": "Effective FPS = 1000 ms ÷ Pipeline/Frame — meaning the model can process this many frames per second if running continuously. In practice, the pipeline only samples 1 out of every {} frames from the source video (frame stride), so the actual frames processed per second is much lower (e.g. 15 fps source ÷ stride {} = {} fps actual).",
 
         # History page
         "history_title": "Analysis History",

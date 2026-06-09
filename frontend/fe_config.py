@@ -13,7 +13,7 @@ PAGE_ICON = "🎓"
 LAYOUT = "wide"
 
 # Upload limits (must match backend)
-MAX_VIDEO_SIZE_MB = 200
+MAX_VIDEO_SIZE_MB = 500
 ALLOWED_EXTENSIONS = ["mp4", "avi", "mov", "mkv"]
 
 # Polling interval for processing status (seconds)

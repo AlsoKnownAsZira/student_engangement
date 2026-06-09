@@ -22,14 +22,14 @@ tracker_type: botsort
 # --- Detection Thresholds ---
 track_high_thresh: 0.2
 track_low_thresh: 0.05
-new_track_thresh: 0.4
+new_track_thresh: 0.30
 fuse_score: true
 
 # --- Track Retention ---
 # track_buffer dihitung dalam JUMLAH FRAME, bukan detik.
 # Pada inferensi efektif 3fps: buffer 30 frame ≈ 10 detik.
 # Dinaikkan dari 18 untuk mengurangi ID fragmentation di video panjang.
-track_buffer: 30
+track_buffer: 90
 # match_thresh: maximum IoU distance yang dibolehkan untuk asosiasi track↔detection.
 # IoU distance = 1 - IoU, jadi nilai lebih tinggi = lebih permissive.
 # Dinaikkan dari 0.85 → 0.90 untuk tolerir positional jump lebih besar

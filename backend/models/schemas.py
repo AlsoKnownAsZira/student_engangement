@@ -95,6 +95,9 @@ class AnalysisResultResponse(BaseModel):
     created_at: Optional[str] = None
     completed_at: Optional[str] = None
     processing_time_seconds: Optional[float] = None
+    avg_detector_ms: Optional[float] = None
+    avg_classifier_ms: Optional[float] = None
+    avg_pipeline_ms_per_frame: Optional[float] = None
 
     class_summary: ClassSummary = ClassSummary()
     students: list[StudentResult] = []
