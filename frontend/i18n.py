@@ -118,7 +118,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "metric_time": "⏱️ Waktu Pemrosesan",
         "metric_detections": "📊 Total Deteksi",
         "section_class_summary": "Ringkasan Keterlibatan Kelas",
-        "majority_vote_note": "Berdasarkan <b>voting mayoritas</b> di semua frame untuk masing-masing dari <b>{}</b> siswa yang terlacak.",
+        "majority_vote_note": "Berdasarkan distribusi label keterlibatan terhadap <b>{}</b> siswa yang terdeteksi secara bersamaan pada puncak aktivitas.",
         "section_video": "Video Beranotasi",
         "section_per_student": "Keterlibatan per Siswa",
         "tab_table": "📋 Tabel",
