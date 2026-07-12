@@ -66,6 +66,45 @@ if result["status"] != "completed":
 
 class_summary = result["class_summary"]
 students = result["students"]
+
+# ── Load CSV once — used for pie chart (frame-weighted) + per-frame table ──
+_df_frames = None
+_csv_url_raw = result.get("csv_download_url")
+if _csv_url_raw:
+    try:
+        import io, urllib.request
+        with urllib.request.urlopen(_csv_url_raw) as _resp:
+            _df_raw = pd.read_csv(io.StringIO(_resp.read().decode("utf-8")))
+
+        _eff_fps = 15.0 / (result.get("frame_stride") or 5)
+        _grp = _df_raw.groupby("frame")["engagement_level"]
+        _df_frames = pd.DataFrame({
+            "Engaged":          _grp.apply(lambda x: int((x == "engaged").sum())),
+            "Not Engaged":      _grp.apply(lambda x: int((x == "not-engaged").sum())),
+            "Total Terdeteksi": _grp.count(),
+        }).reset_index()
+        _df_frames["% Engaged"] = (
+            _df_frames["Engaged"] / _df_frames["Total Terdeteksi"] * 100
+        ).round(1)
+        _df_frames["Label Mayoritas"] = _df_frames["% Engaged"].apply(
+            lambda p: "✅ Terlibat" if p >= 50 else "❌ Tidak Terlibat"
+        )
+        _df_frames.insert(1, "Timestamp", _df_frames["frame"].apply(
+            lambda f: f"{int(f/_eff_fps//60):02d}:{int(f/_eff_fps%60):02d}"
+        ))
+        _df_frames = _df_frames.rename(columns={"frame": "Frame"})[
+            ["Frame", "Timestamp", "Engaged", "Not Engaged", "Total Terdeteksi", "% Engaged", "Label Mayoritas"]
+        ]
+
+        # Override engagement_distribution dengan frame-weighted average
+        _avg_eng = float(_df_frames["% Engaged"].mean()) / 100
+        class_summary["engagement_distribution"] = {
+            "engaged":     round(_avg_eng, 4),
+            "not_engaged": round(1.0 - _avg_eng, 4),
+        }
+    except Exception:
+        pass
+
 metrics = engagement_summary_metrics(class_summary)
 p = _palette()
 
@@ -154,27 +193,18 @@ show_video(result.get("output_video_url"))
 
 st.divider()
 
-# ── Per-student results ───────────────────────────────────────────────────
+# ── Per-frame engagement ──────────────────────────────────────────────────
 
-section_header(t("section_per_student"), "👥")
+section_header("Keterlibatan per Frame", "📊")
 
-if students:
-    df = pd.DataFrame(students)
-    df["final_engagement"] = df["final_engagement"].map(
-        lambda x: f"{ENGAGEMENT_EMOJI.get(x, '')} {t('label_engaged') if x == 'engaged' else t('label_not_engaged')}"
+if _df_frames is not None:
+    st.dataframe(_df_frames, use_container_width=True, hide_index=True)
+    st.caption(
+        f"Rata-rata keterlibatan per frame: **{_df_frames['% Engaged'].mean():.1f}% Engaged** "
+        f"— dihitung dari {len(_df_frames)} frame yang diproses."
     )
-    df = df.rename(columns={
-        "track_id": t("col_student_id"),
-        "final_engagement": t("col_engagement"),
-        "engaged_votes": t("col_engaged_votes"),
-        "not_engaged_votes": t("col_not_engaged_votes"),
-        "total_frames": t("col_total_frames"),
-        "avg_confidence": t("col_avg_conf"),
-        "vote_percentage": t("col_majority_vote"),
-    })
-    st.dataframe(df, use_container_width=True, hide_index=True)
 else:
-    st.info(t("no_student_data"))
+    st.info("Data per frame tidak tersedia untuk analisis ini.")
 
 st.divider()
 

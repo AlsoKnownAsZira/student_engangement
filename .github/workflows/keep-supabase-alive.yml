@@ -1,14 +1,14 @@
 # ═══════════════════════════════════════════════════════════════════
 # Keep Supabase project alive — prevent auto-pause on free tier
-# Runs every 3 days, sends a simple DB query to register activity
+# Runs daily, sends REST + Auth health pings (with retry) to register activity
 # ═══════════════════════════════════════════════════════════════════
 
 name: Keep Supabase Alive
 
 on:
   schedule:
-    # Runs at 08:14 UTC every 3 days (off-peak time to avoid GitHub Actions delays)
-    - cron: "14 8 */3 * *"
+    # Runs at 08:14 UTC every day (off-peak time to avoid GitHub Actions delays)
+    - cron: "14 8 * * *"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -24,31 +24,59 @@ jobs:
         run: |
           echo "Pinging REST API using Node to simulate real client..."
           node -e "
-            fetch('${{ secrets.SUPABASE_URL }}/rest/v1/analyses?select=id&limit=1', {
-              headers: {
-                'apikey': '${{ secrets.SUPABASE_KEY }}',
-                'Authorization': 'Bearer ${{ secrets.SUPABASE_KEY }}',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            async function pingWithRetry(url, options, label, attempts = 3, delayMs = 5000) {
+              for (let i = 1; i <= attempts; i++) {
+                try {
+                  const r = await fetch(url, options);
+                  console.log(label + ' Status:', r.status, '(attempt ' + i + ')');
+                  if (r.ok) return;
+                  throw new Error(label + ' returned ' + r.status);
+                } catch (e) {
+                  console.error('Attempt ' + i + ' failed:', e.message);
+                  if (i === attempts) { console.error(label + ' failed after ' + attempts + ' attempts'); process.exit(1); }
+                  await new Promise(res => setTimeout(res, delayMs));
+                }
               }
-            }).then(r => {
-              console.log('Database Ping Status:', r.status);
-              if (!r.ok) process.exit(1);
-            }).catch(e => {
-              console.error(e);
-              process.exit(1);
-            });
+            }
+            pingWithRetry(
+              '${{ secrets.SUPABASE_URL }}/rest/v1/analyses?select=id&limit=1',
+              {
+                headers: {
+                  'apikey': '${{ secrets.SUPABASE_KEY }}',
+                  'Authorization': 'Bearer ${{ secrets.SUPABASE_KEY }}',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                }
+              },
+              'Database Ping'
+            );
           "
 
       - name: Ping Supabase Auth (Node.js SDK)
         run: |
-          echo "Pinging Auth using Node..."
+          echo "Pinging Auth health endpoint using Node..."
           node -e "
-            fetch('${{ secrets.SUPABASE_URL }}/auth/v1/settings', {
-              headers: {
-                'apikey': '${{ secrets.SUPABASE_KEY }}',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            async function pingWithRetry(url, options, label, attempts = 3, delayMs = 5000) {
+              for (let i = 1; i <= attempts; i++) {
+                try {
+                  const r = await fetch(url, options);
+                  console.log(label + ' Status:', r.status, '(attempt ' + i + ')');
+                  if (r.ok) return;
+                  throw new Error(label + ' returned ' + r.status);
+                } catch (e) {
+                  console.error('Attempt ' + i + ' failed:', e.message);
+                  if (i === attempts) { console.error(label + ' failed after ' + attempts + ' attempts'); process.exit(1); }
+                  await new Promise(res => setTimeout(res, delayMs));
+                }
               }
-            }).then(r => {
-              console.log('Auth Ping Status:', r.status);
-            }).catch(e => console.error(e));
+            }
+            pingWithRetry(
+              '${{ secrets.SUPABASE_URL }}/auth/v1/health',
+              {
+                headers: {
+                  'apikey': '${{ secrets.SUPABASE_KEY }}',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                }
+              },
+              'Auth Ping'
+            );
           "
