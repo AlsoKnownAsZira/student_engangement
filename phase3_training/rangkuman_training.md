@@ -23,10 +23,12 @@
 
 | Kelas | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 | V9 | V10 |
 |-------|----|----|----|----|----|----|-----|----|----|-----|
-| High / Engaged    | ~79.4% | 72.0% | ~72% | 66.9% | mAP **85.3%** | F1 0.569 | F1 **0.802** | F1 0.752 | F1 0.723 | F1 0.767 |
-| Low / NotEngaged  | ~57.2% | 62.1% | ~60% | 58.5% | mAP 67.0% | F1 0.698 | F1 0.721 | F1 0.703 | F1 0.687 | F1 0.722 |
-| Medium            | ~36.6% | 41.4% | ~38% | 38.9% | *(merged)* | F1 0.335 | *(merged)* | *(merged)* | *(merged)* | *(merged)* |
-| **Overall**       | **~57.8%** | **58.5%** | **~58%** | **54.8%** | **mAP 76.2%** | **Acc 57.7%** | **Acc 76.8%** | **Acc 73.0%** | **Acc 70.6%** | **Acc 74.6% / 82.21% calib** ✓ |
+| High / Engaged    | 79.4% | 72.0% | 72.4% | 66.9% | mAP **85.3%** | F1 0.569 | F1 **0.802** | F1 0.752 | F1 0.723 | F1 0.767 |
+| Low / NotEngaged  | 57.2% | 62.1% | 62.5% | 58.5% | mAP 67.0% | F1 0.698 | F1 0.721 | F1 0.703 | F1 0.687 | F1 0.722 |
+| Medium            | 36.6% | 41.4% | 39.1% | 38.9% | *(merged)* | F1 0.335 | *(merged)* | *(merged)* | *(merged)* | *(merged)* |
+| **Overall**       | **57.8%** | **58.5%** | **58.0%** | **54.8%** | **mAP 76.2%** | **Acc 57.7%** | **Acc 76.8%** | **Acc 73.0%** | **Acc 70.6%** | **Acc 74.6% / 82.21% calib** ✓ |
+
+> V1 dan V3 sebelumnya berupa estimasi (~); telah diverifikasi dari log training Colab asli (lihat detail per versi di bawah).
 
 ---
 
@@ -37,7 +39,14 @@
 - **Resolusi:** 640px, Batch: 16, Patience: 15, Epochs: 70
 - **Dataset:** Original 742 img, 3-class (High/Low/Medium)
 - **Masalah:** Model terlalu kecil, resolusi terlalu rendah. 63% bounding box siswa <1% area frame. Patience=15 terlalu agresif.
-- **Hasil:** mAP ~57.8%, Medium 36.6%
+- **Hasil (log Colab, best epoch 18, early stop di epoch 33):**
+
+  | Kelas | Precision | Recall | mAP50 | mAP50-95 |
+  |-------|-----------|--------|-------|----------|
+  | All | 0.531 | 0.704 | 0.578 | 0.283 |
+  | High | 0.591 | 0.906 | 0.794 | 0.394 |
+  | Low | 0.679 | 0.454 | 0.572 | 0.271 |
+  | Medium | 0.322 | 0.751 | 0.366 | 0.184 |
 
 ---
 
@@ -57,7 +66,16 @@
 - **Resolusi:** 1280px, Batch: 4, Patience: 40, cls=1.5
 - **Dataset:** Original 742 img, 3-class
 - **Hipotesis:** 1280px akan bantu deteksi siswa kecil lebih baik dari 960px.
-- **Hasil:** ~58% — identik dengan V2, lebih lambat.
+- **Hasil (log Colab):**
+
+  | Kelas | Precision | Recall | mAP50 | mAP50-95 |
+  |-------|-----------|--------|-------|----------|
+  | All | 0.537 | 0.618 | 0.580 | 0.279 |
+  | High | 0.669 | 0.723 | 0.724 | 0.383 |
+  | Low | 0.584 | 0.549 | 0.625 | 0.260 |
+  | Medium | 0.359 | 0.583 | 0.391 | 0.194 |
+
+  Mirip V2, lebih lambat.
 - **Kesimpulan:** 1280px tidak membantu. Bottleneck bukan resolusi tapi distribusi data.
 
 ---
